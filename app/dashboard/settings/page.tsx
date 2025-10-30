@@ -1,5 +1,21 @@
-import { SettingsScreen } from "../../../components/SettingsScreen";
+"use client";
+import { SettingsScreen } from "@/components/SettingsScreen";
 
 export default function SettingsPage() {
-    return <SettingsScreen />;
+  // Valores padrão que podem ser carregados do contexto ou banco no futuro
+  const defaultLanguage = "Português do Brasil";
+  const defaultFocusKeywords = "liturgia diária, santo do dia, catequese, fé, oração";
+
+  const handleSave = (settings: { language: string; focusKeywords: string }) => {
+    console.log("💾 Configurações salvas:", settings);
+    // aqui futuramente você pode salvar no contexto ou API
+  };
+
+  return (
+    <SettingsScreen
+      currentLanguage={defaultLanguage}
+      currentFocusKeywords={defaultFocusKeywords}
+      onSave={handleSave}
+    />
+  );
 }

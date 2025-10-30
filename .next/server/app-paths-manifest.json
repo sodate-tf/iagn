@@ -1,0 +1,10 @@
+{
+  "/_global-error/page": "app/_global-error/page.js",
+  "/_not-found/page": "app/_not-found/page.js",
+  "/api/calendar/today/generate-and-publish/route": "app/api/calendar/today/generate-and-publish/route.js",
+  "/api/calendar/today/route": "app/api/calendar/today/route.js",
+  "/dashboard/history/page": "app/dashboard/history/page.js",
+  "/dashboard/page": "app/dashboard/page.js",
+  "/dashboard/settings/page": "app/dashboard/settings/page.js",
+  "/page": "app/page.js"
+}

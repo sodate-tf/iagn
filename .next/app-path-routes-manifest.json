@@ -1,0 +1,10 @@
+{
+  "/_global-error/page": "/_global-error",
+  "/_not-found/page": "/_not-found",
+  "/api/calendar/today/generate-and-publish/route": "/api/calendar/today/generate-and-publish",
+  "/api/calendar/today/route": "/api/calendar/today",
+  "/dashboard/history/page": "/dashboard/history",
+  "/dashboard/page": "/dashboard",
+  "/dashboard/settings/page": "/dashboard/settings",
+  "/page": "/"
+}
