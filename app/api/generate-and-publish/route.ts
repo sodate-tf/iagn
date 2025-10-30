@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
     const article = await generateAndSaveArticleAction(topic, language, focusKeywords);
 
     // 📤 Etapa 5: Publica remotamente no outro site
-    const remoteRes = await fetch("https://www.SEUSITEDESTINO.com.br/api/remote-post", {
+    const remoteRes = await fetch("https://www.iatioben.com.br/api/remote-post", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
