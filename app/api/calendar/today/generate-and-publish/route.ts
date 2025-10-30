@@ -1,102 +1,75 @@
-import { analyzeSeoAndExtractMetadata, formatArticleToHtml, writeNewsArticle } from "@/services/geminiService";
 import { NextRequest, NextResponse } from "next/server";
+import { generateAndSaveArticleAction } from "@/app/actions";
+import { analyzeSeoAndExtractMetadata, formatArticleToHtml, writeNewsArticle } from "@/services/geminiService";
 
 
-/**
- * 🔒 Chave de autenticação (mesma usada no Apps Script)
- */
-const API_KEY = process.env.REMOTE_POST_API_KEY!;
-const REMOTE_API_URL = process.env.REMOTE_POST_URL;
-
-// Categoria fixa válida no banco Neon
-const DEFAULT_CATEGORY_ID = "ba7adc02-de35-4405-b3f3-7391947d6281";
-const DEFAULT_CATEGORY_NAME = "Santos";
+export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
-  console.log("🚀 [generate-and-publish] Chamada recebida");
-
   try {
-    // 🔐 Valida a API key
-    const authHeader = req.headers.get("x-api-key");
-    if (authHeader !== API_KEY) {
-      console.warn("🚫 [generate-and-publish] Acesso não autorizado");
-      return NextResponse.json({ success: false, message: "Acesso não autorizado" }, { status: 401 });
+    // 🔐 Verifica a chave da API
+    const apiKey = req.headers.get("x-api-key");
+    if (apiKey !== process.env.REMOTE_POST_API_KEY) {
+      return NextResponse.json({ error: "Acesso não autorizado." }, { status: 401 });
     }
 
     const body = await req.json();
-    const { topic, language = "pt-BR", focusKeywords = "" } = body;
+    const { topic, language, focusKeywords } = body;
 
     if (!topic) {
-      console.warn("⚠️ [generate-and-publish] Campo 'topic' ausente no body");
-      return NextResponse.json({ success: false, message: "O campo 'topic' é obrigatório." }, { status: 400 });
+      return NextResponse.json({ error: "Campo 'topic' é obrigatório." }, { status: 400 });
     }
 
-    console.log("🧩 [generate-and-publish] Iniciando pipeline para:", topic);
+    console.log(`🚀 Iniciando geração automática para: ${topic}`);
 
-    // 1️⃣ Gera o artigo textual
+    // 🧠 Etapa 1: Geração do texto
     const articleText = await writeNewsArticle(topic, language, focusKeywords);
-    console.log("📝 [generate-and-publish] Artigo gerado com sucesso. Tamanho:", articleText.length);
 
-    // 2️⃣ Formata em HTML
+    // 🪄 Etapa 2: Formatação HTML
     const htmlArticle = await formatArticleToHtml(articleText);
-    console.log("🎨 [generate-and-publish] HTML formatado com sucesso. Tamanho:", htmlArticle.length);
 
-    // 3️⃣ Extrai SEO
-    const { keywords, metaDescription } = await analyzeSeoAndExtractMetadata(articleText, focusKeywords);
-    console.log("🔍 [generate-and-publish] SEO extraído com sucesso.");
+    // 🔍 Etapa 3: SEO
+    const seoData = await analyzeSeoAndExtractMetadata(articleText, focusKeywords);
+    const { keywords, metaDescription } = seoData;
 
-    // 4️⃣ Cria slug seguro
-    const slug = topic
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^\w\s-]/g, "")
-      .replace(/[\s_-]+/g, "-")
-      .replace(/^-+|-+$/g, "");
+    // 💾 Etapa 4: Salva localmente no banco
+    const article = await generateAndSaveArticleAction(topic, language, focusKeywords);
 
-    // 5️⃣ Monta o payload para o site de destino
-    const payload = {
-      title: topic,
-      slug,
-      content: htmlArticle,
-      categoryId: DEFAULT_CATEGORY_ID,
-      categoryName: DEFAULT_CATEGORY_NAME,
-      keywords: keywords.join(", "),
-      metaDescription,
-      publishDate: new Date().toISOString(),
-      isActive: true,
-    };
-
-    console.log("📦 [generate-and-publish] Payload preparado:", payload);
-
-    // 6️⃣ Envia o post para o site de destino
-    console.log(`🌍 [generate-and-publish] Enviando para ${REMOTE_API_URL} ...`);
-
-    const res = await fetch(REMOTE_API_URL, {
+    // 📤 Etapa 5: Publica remotamente no outro site
+    const remoteRes = await fetch("https://www.SEUSITEDESTINO.com.br/api/remote-post", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-api-key": API_KEY,
+        "x-api-key": process.env.REMOTE_POST_API_KEY!,
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        title: topic,
+        slug: topic.toLowerCase().replace(/[^\w]+/g, "-"),
+        content: htmlArticle,
+        categoryId: "ba7adc02-de35-4405-b3f3-7391947d6281", // categoria fixa "Santos"
+        categoryName: "Santos",
+        keywords: keywords.join(", "),
+        metaDescription,
+        publishDate: new Date().toISOString(),
+        isActive: true,
+      }),
     });
 
-    const result = await res.json();
-    if (!res.ok) {
-      console.error("❌ [generate-and-publish] Falha ao publicar remotamente:", result);
-      return NextResponse.json({ success: false, message: "Erro ao publicar remotamente", details: result }, { status: 500 });
+    if (!remoteRes.ok) {
+      const errText = await remoteRes.text();
+      console.error("❌ Falha ao publicar no site destino:", errText);
+      return NextResponse.json({ error: "Falha ao publicar no site destino.", detail: errText }, { status: 500 });
     }
 
-    console.log("✅ [generate-and-publish] Publicado com sucesso no site remoto.");
+    console.log("✅ Artigo publicado com sucesso em ambos os sites.");
+
     return NextResponse.json({
       success: true,
-      message: "Post gerado e publicado com sucesso!",
-      payload,
-      remoteResponse: result,
+      message: "Artigo gerado e publicado com sucesso!",
+      topic,
     });
-
-  } catch (error) {
-    console.error("❌ [generate-and-publish] Erro geral:", error);
-    return NextResponse.json({ success: false, message: "Erro interno ao gerar ou publicar post.", error: (error as Error).message }, { status: 500 });
+  } catch (error: any) {
+    console.error("❌ Erro na API /generate-and-publish:", error);
+    return NextResponse.json({ error: error.message || "Erro desconhecido." }, { status: 500 });
   }
 }
