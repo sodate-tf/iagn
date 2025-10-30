@@ -1,0 +1,5 @@
+{
+  "name": "AI News Generation Portal",
+  "description": "An automated news generation portal that uses a pipeline of AI agents to fetch topics from Google Calendar, write articles, generate images, format content, and publish to a blog.",
+  "requestFramePermissions": []
+}

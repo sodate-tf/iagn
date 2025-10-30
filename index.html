@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-g" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI News Generation Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              'gray-900': '#121212',
+              'gray-800': '#1E1E1E',
+              'gray-700': '#2C2C2C',
+              'gray-600': '#3E3E3E',
+              'gray-400': '#A0A0A0',
+              'gray-200': '#E0E0E0',
+              'primary': '#6366F1',
+              'primary-hover': '#4F46E5',
+              'secondary': '#10B981',
+              'warning': '#F59E0B',
+              'danger': '#EF4444',
+            }
+          }
+        }
+      }
+    </script>
+  <script type="importmap">
+{
+  "imports": {
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.548.0",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.27.0",
+    "@neondatabase/serverless": "https://esm.sh/@neondatabase/serverless@0.9.4",
+    "next/": "https://aistudiocdn.com/next@^16.0.1/",
+    "next": "https://aistudiocdn.com/next@^16.0.1"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body class="bg-gray-900 text-gray-200">
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
