@@ -116,16 +116,33 @@ export async function saveArticleDraft(data: {
 /* =========================================================
    🔍 Buscar artigo por ID
    ========================================================= */
-export async function getArticleById(id: string): Promise<ArtigoNoticia | null> {
+/**
+ * Busca um artigo pelo ID.
+ */
+export async function getArticleById(id: string | number) {
   try {
-    const result = await sql`SELECT * FROM articles WHERE id = ${id} LIMIT 1;`;
-    if (result.length === 0) return null;
-    return mapRowToArticle(result[0]);
+    const result = await sql`
+      SELECT * FROM articles WHERE id = ${id} LIMIT 1;
+    `;
+    const rows = Array.isArray(result) ? result : result ? [result] : [];
+    if (rows.length === 0) return null;
+
+    return {
+      id: String(rows[0].id),
+      generationDate: rows[0].generation_date,
+      title: rows[0].title,
+      rawContent: rows[0].raw_content,
+      formattedContent: rows[0].formatted_content,
+      published: rows[0].published,
+      keywords: rows[0].keywords || [],
+      metaDescription: rows[0].meta_description || '',
+    };
   } catch (error) {
-    console.error("❌ Erro ao buscar artigo por ID:", error);
-    throw new Error("Falha ao buscar o artigo.");
+    console.error("❌ Erro ao buscar artigo:", error);
+    throw new Error("Falha ao buscar o artigo por ID.");
   }
 }
+
 
 /* =========================================================
    ✏️ Atualizar artigo (HTML, SEO, status etc.)
@@ -161,22 +178,28 @@ export async function updateArticle(id: string, data: Partial<ArtigoNoticia>): P
 /**
  * Atualiza o campo formatted_content de um artigo específico
  */
+/**
+ * Atualiza o campo formatted_content de um artigo específico no banco.
+ */
 export async function updateArticleHtml(id: string | number, html: string) {
   try {
+    // Executa o update no Neon
     const result = await sql`
       UPDATE articles
       SET formatted_content = ${html}
       WHERE id = ${id}
-      RETURNING *;
+      RETURNING id, title, formatted_content;
     `;
 
-    // 🔍 Verifica o formato correto do retorno
-    if (!Array.isArray(result) || result.length === 0) {
-      throw new Error("Nenhum artigo retornado pelo banco após o update.");
+    // 🔍 Normaliza o retorno (o Neon pode devolver objeto único, não array)
+    const rows = Array.isArray(result) ? result : result ? [result] : [];
+
+    if (rows.length === 0) {
+      throw new Error(`Nenhum artigo retornado após o update (ID ${id}).`);
     }
 
     console.log(`✅ HTML atualizado com sucesso para o artigo ID ${id}.`);
-    return result[0];
+    return rows[0];
   } catch (error) {
     console.error("❌ Erro ao atualizar o artigo:", error);
     throw new Error("Falha ao atualizar o artigo.");
