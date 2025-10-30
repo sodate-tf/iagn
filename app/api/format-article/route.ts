@@ -15,7 +15,11 @@ export async function POST(req: NextRequest) {
     const article = await getArticleById(id);
     if (!article) return NextResponse.json({ error: "Artigo não encontrado" }, { status: 404 });
 
-    const html = await formatArticleToHtml(article.formattedContent);
+    console.log(`📝 Conteúdo bruto recebido (${article.rawContent?.length} chars)`);
+
+    // Corrigido: deve formatar o texto cru, não o HTML
+    const html = await formatArticleToHtml(article.rawContent);
+
     await updateArticleHtml(id, html);
 
     console.log("✅ HTML formatado e salvo com sucesso.");
