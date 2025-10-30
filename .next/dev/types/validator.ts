@@ -86,7 +86,7 @@ type RouteHandlerConfig<Route extends AppRouteHandlerRoutes = AppRouteHandlerRou
 // Validate ../../../app/api/calendar/today/generate-and-publish/route.ts
 {
   type __IsExpected<Specific extends RouteHandlerConfig<"/api/calendar/today/generate-and-publish">> = Specific
-  const handler = {} as typeof import("../../../app/api/calendar/today/generate-and-publish/route.js")
+  const handler = {} as typeof import("../../../app/api/generate-and-publish/route.js")
   type __Check = __IsExpected<typeof handler>
   // @ts-ignore
   type __Unused = __Check
