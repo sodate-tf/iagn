@@ -32,6 +32,6 @@ export interface ArtigoNoticia {
   rawContent: string;
   formattedContent: string;
   published: boolean;
-  keywords: string[];
+   keywords: string[]; // ✅ Corrigido (era string)
   metaDescription: string;
 }
