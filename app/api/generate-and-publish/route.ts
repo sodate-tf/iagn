@@ -4,6 +4,8 @@ import { analyzeSeoAndExtractMetadata, formatArticleToHtml, writeNewsArticle } f
 
 
 export const runtime = "nodejs";
+export const maxDuration = 120;
+
 
 export async function POST(req: NextRequest) {
   try {
