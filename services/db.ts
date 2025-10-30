@@ -113,7 +113,6 @@ export async function saveArticleDraft(data: {
   }
 }
 
-
 /* =========================================================
    🔍 Buscar artigo por ID
    ========================================================= */
@@ -155,6 +154,31 @@ export async function updateArticle(id: string, data: Partial<ArtigoNoticia>): P
     console.log(`📝 Artigo ${id} atualizado (${keys.join(", ")})`);
   } catch (error) {
     console.error("❌ Erro ao atualizar artigo:", error);
+    throw new Error("Falha ao atualizar o artigo.");
+  }
+}
+
+/**
+ * Atualiza o campo formatted_content de um artigo específico
+ */
+export async function updateArticleHtml(id: string | number, html: string) {
+  try {
+    const result = await sql`
+      UPDATE articles
+      SET formatted_content = ${html}
+      WHERE id = ${id}
+      RETURNING *;
+    `;
+
+    // 🔍 Verifica o formato correto do retorno
+    if (!Array.isArray(result) || result.length === 0) {
+      throw new Error("Nenhum artigo retornado pelo banco após o update.");
+    }
+
+    console.log(`✅ HTML atualizado com sucesso para o artigo ID ${id}.`);
+    return result[0];
+  } catch (error) {
+    console.error("❌ Erro ao atualizar o artigo:", error);
     throw new Error("Falha ao atualizar o artigo.");
   }
 }
