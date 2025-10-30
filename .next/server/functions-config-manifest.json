@@ -1,4 +1,17 @@
 {
   "version": 1,
-  "functions": {}
+  "functions": {
+    "/api/gerenate-article": {
+      "maxDuration": 120
+    },
+    "/api/generate-and-publish": {
+      "maxDuration": 120
+    },
+    "/api/format-article": {
+      "maxDuration": 120
+    },
+    "/api/seo-and-publish": {
+      "maxDuration": 120
+    }
+  }
 }

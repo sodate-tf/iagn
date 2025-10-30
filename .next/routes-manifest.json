@@ -46,10 +46,28 @@
       "namedRegex": "^/api/calendar/today(?:/)?$"
     },
     {
-      "page": "/api/calendar/today/generate-and-publish",
-      "regex": "^/api/calendar/today/generate\\-and\\-publish(?:/)?$",
+      "page": "/api/format-article",
+      "regex": "^/api/format\\-article(?:/)?$",
       "routeKeys": {},
-      "namedRegex": "^/api/calendar/today/generate\\-and\\-publish(?:/)?$"
+      "namedRegex": "^/api/format\\-article(?:/)?$"
+    },
+    {
+      "page": "/api/generate-and-publish",
+      "regex": "^/api/generate\\-and\\-publish(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/generate\\-and\\-publish(?:/)?$"
+    },
+    {
+      "page": "/api/gerenate-article",
+      "regex": "^/api/gerenate\\-article(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/gerenate\\-article(?:/)?$"
+    },
+    {
+      "page": "/api/seo-and-publish",
+      "regex": "^/api/seo\\-and\\-publish(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/seo\\-and\\-publish(?:/)?$"
     },
     {
       "page": "/dashboard",

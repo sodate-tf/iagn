@@ -57,6 +57,66 @@
       },
       "filename": "app/actions.ts",
       "exportedName": "getArticlesAction"
+    },
+    "400e61989097eb8b9f68c780e0d03ac63cfdf09c02": {
+      "workers": {
+        "app/dashboard/history/page": {
+          "moduleId": 86379,
+          "async": false,
+          "exportedName": "getArticleById",
+          "filename": "app/actions.ts"
+        }
+      },
+      "layer": {
+        "app/dashboard/history/page": "rsc"
+      },
+      "filename": "app/actions.ts",
+      "exportedName": "getArticleById"
+    },
+    "40beaf35ecbbfb8886c6be979c13bf3516a379c0e5": {
+      "workers": {
+        "app/dashboard/history/page": {
+          "moduleId": 86379,
+          "async": false,
+          "exportedName": "saveArticleDraft",
+          "filename": "app/actions.ts"
+        }
+      },
+      "layer": {
+        "app/dashboard/history/page": "rsc"
+      },
+      "filename": "app/actions.ts",
+      "exportedName": "saveArticleDraft"
+    },
+    "600f1d6fd2e8bc63d9f50ada752da9b53c4faada57": {
+      "workers": {
+        "app/dashboard/history/page": {
+          "moduleId": 86379,
+          "async": false,
+          "exportedName": "updateArticleHtml",
+          "filename": "app/actions.ts"
+        }
+      },
+      "layer": {
+        "app/dashboard/history/page": "rsc"
+      },
+      "filename": "app/actions.ts",
+      "exportedName": "updateArticleHtml"
+    },
+    "60b3884135d67f03b04d28d68149fff07fc9729e4b": {
+      "workers": {
+        "app/dashboard/history/page": {
+          "moduleId": 86379,
+          "async": false,
+          "exportedName": "updateArticleSeo",
+          "filename": "app/actions.ts"
+        }
+      },
+      "layer": {
+        "app/dashboard/history/page": "rsc"
+      },
+      "filename": "app/actions.ts",
+      "exportedName": "updateArticleSeo"
     }
   },
   "edge": {},

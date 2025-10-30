@@ -83,19 +83,46 @@ type RouteHandlerConfig<Route extends AppRouteHandlerRoutes = AppRouteHandlerRou
   type __Unused = __Check
 }
 
-// Validate ../../app/api/calendar/today/generate-and-publish/route.ts
+// Validate ../../app/api/calendar/today/route.ts
 {
-  type __IsExpected<Specific extends RouteHandlerConfig<"/api/calendar/today/generate-and-publish">> = Specific
+  type __IsExpected<Specific extends RouteHandlerConfig<"/api/calendar/today">> = Specific
+  const handler = {} as typeof import("../../app/api/calendar/today/route.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
+
+// Validate ../../app/api/format-article/route.ts
+{
+  type __IsExpected<Specific extends RouteHandlerConfig<"/api/format-article">> = Specific
+  const handler = {} as typeof import("../../app/api/format-article/route.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
+
+// Validate ../../app/api/generate-and-publish/route.ts
+{
+  type __IsExpected<Specific extends RouteHandlerConfig<"/api/generate-and-publish">> = Specific
   const handler = {} as typeof import("../../app/api/generate-and-publish/route.js")
   type __Check = __IsExpected<typeof handler>
   // @ts-ignore
   type __Unused = __Check
 }
 
-// Validate ../../app/api/calendar/today/route.ts
+// Validate ../../app/api/gerenate-article/route.ts
 {
-  type __IsExpected<Specific extends RouteHandlerConfig<"/api/calendar/today">> = Specific
-  const handler = {} as typeof import("../../app/api/calendar/today/route.js")
+  type __IsExpected<Specific extends RouteHandlerConfig<"/api/gerenate-article">> = Specific
+  const handler = {} as typeof import("../../app/api/gerenate-article/route.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
+
+// Validate ../../app/api/seo-and-publish/route.ts
+{
+  type __IsExpected<Specific extends RouteHandlerConfig<"/api/seo-and-publish">> = Specific
+  const handler = {} as typeof import("../../app/api/seo-and-publish/route.js")
   type __Check = __IsExpected<typeof handler>
   // @ts-ignore
   type __Unused = __Check

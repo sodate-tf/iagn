@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { writeNewsArticle } from "@/services/geminiService";
-
+import { saveArticleDraft } from "@/app/actions"; // cria artigo no banco e retorna ID
 
 export const runtime = "nodejs";
 export const maxDuration = 120;

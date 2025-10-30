@@ -91,6 +91,29 @@ export async function saveArticle(article: Omit<ArtigoNoticia, "id">): Promise<A
   }
 }
 
+
+/**
+ * Salva um rascunho inicial do artigo (antes da formatação e SEO)
+ */
+export async function saveArticleDraft(data: {
+  title: string;
+  content: string;
+  language: string;
+}): Promise<{ id: string }> {
+  try {
+    const result = await sql`
+      INSERT INTO articles (generation_date, title, raw_content, formatted_content, published)
+      VALUES (NOW(), ${data.title}, ${data.content}, '', false)
+      RETURNING id;
+    `;
+    return { id: result[0].id.toString() };
+  } catch (error) {
+    console.error("❌ Erro ao salvar rascunho:", error);
+    throw new Error("Falha ao salvar o rascunho do artigo.");
+  }
+}
+
+
 /* =========================================================
    🔍 Buscar artigo por ID
    ========================================================= */
