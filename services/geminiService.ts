@@ -74,7 +74,7 @@ O idioma do artigo deve ser: ${language}.
     console.log("✍️ [writeNewsArticle] Enviando prompt para o modelo gemini-2.5-pro...");
 
     const response = await ai.models.generateContent({
-     model: "gemini-2.0-flash",
+     model: "gemini-1.5-flash",
       contents: [{ parts: [{ text: prompt }] }],
     });
 
@@ -213,7 +213,7 @@ Não adicione explicações nem comentários — apenas gere o HTML final.
 
 
     const response = await ai.models.generateContent({
-     model: "gemini-2.0-flash",
+     model: "gemini-1.5-flash",
       contents: [{ parts: [{ text: prompt }] }],
     });
 
@@ -269,7 +269,7 @@ Retorne **somente o JSON** no formato:
 
 
     const response = await ai.models.generateContent({
-      model: "gemini-2.0-flash",
+      model: "gemini-1.5-flash",
       contents: [{ parts: [{ text: prompt }] }],
       config: {
         responseMimeType: "application/json",

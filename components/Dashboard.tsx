@@ -23,19 +23,20 @@ const initialAgents: Agente[] = [
     name: NomeAgente.ESCRITOR,
     description: "Escreve o artigo de notícia com base no tópico.",
     status: StatusAgente.PENDENTE,
-    model: "gemini-2.5-pro",
+    model :"gemini-1.5-flash"
+,
   },
   {
     name: NomeAgente.FORMATADOR,
     description: "Formata o artigo em HTML estilizado.",
     status: StatusAgente.PENDENTE,
-    model: "gemini-2.5-flash",
+    model :"gemini-1.5-flash",
   },
   {
     name: NomeAgente.SEO,
     description: "Analisa o SEO e extrai metadados.",
     status: StatusAgente.PENDENTE,
-    model: "gemini-2.5-flash",
+    model :"gemini-1.5-flash",
   },
   {
     name: NomeAgente.PUBLICADOR,

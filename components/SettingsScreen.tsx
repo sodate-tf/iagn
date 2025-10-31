@@ -215,9 +215,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ currentLanguage,
         {/* --- Configurações dos Agentes --- */}
         <div className="space-y-6">
             <h2 className="text-xl font-semibold text-white">Configuração dos Agentes de IA</h2>
-            <AgentConfigCard title={NomeAgente.ESCRITOR} model="gemini-2.5-pro" config={writerConfig} setConfig={setWriterConfig} icon={<Bot size={24} className="text-primary"/>}/>
-            <AgentConfigCard title={NomeAgente.FORMATADOR} model="gemini-2.5-flash" config={formatterConfig} setConfig={setFormatterConfig} icon={<Bot size={24} className="text-primary"/>}/>
-            <AgentConfigCard title={NomeAgente.SEO} model="gemini-2.5-flash" config={seoConfig} setConfig={setSeoConfig} icon={<Search size={24} className="text-primary"/>}/>
+            <AgentConfigCard title={NomeAgente.ESCRITOR} model="gemini-1.5-flash" config={writerConfig} setConfig={setWriterConfig} icon={<Bot size={24} className="text-primary"/>}/>
+            <AgentConfigCard title={NomeAgente.FORMATADOR} model="gemini-1.5-flash" config={formatterConfig} setConfig={setFormatterConfig} icon={<Bot size={24} className="text-primary"/>}/>
+            <AgentConfigCard title={NomeAgente.SEO} model="gemini-1.5-flash" config={seoConfig} setConfig={setSeoConfig} icon={<Search size={24} className="text-primary"/>}/>
         </div>
         
         <div className="pt-4 flex justify-end">
