@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { analyzeSeoAndExtractMetadata } from "@/services/geminiService";
-import { getArticleById, updateArticleSeo } from "@/app/actions"; // ✅ usa updateArticle genérico
+import { getArticleById, updateArticleSeo } from "@/app/actions";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
     // 2️⃣ Gera SEO com IA (usando Gemini)
     const seoData = await analyzeSeoAndExtractMetadata(
       article.rawContent,
-      article.keywords.join(", ")
+      article.keywords?.join(", ") || ""
     );
 
     const keywords = seoData.keywords || [];
@@ -36,25 +36,34 @@ export async function POST(req: NextRequest) {
     // 3️⃣ Atualiza o artigo localmente com SEO + published = true
     await updateArticleSeo(id, {
       keywords,
-      metaDescription
+      metaDescription,
     });
 
     console.log(`💾 SEO atualizado e artigo ${id} marcado como publicado.`);
 
     // 4️⃣ Publica remotamente no site principal
     const remotePayload = {
-      title: article.title,
-      slug: article.title.toLowerCase().replace(/[^\w]+/g, "-"),
-      content: article.formattedContent,
+      title: article.title || "Artigo sem título",
+      slug:
+        typeof article.title === "string"
+          ? article.title.toLowerCase().replace(/[^\w]+/g, "-")
+          : "artigo-sem-titulo",
+      content:
+        typeof article.formattedContent === "string"
+          ? article.formattedContent
+          : article.rawContent || "",
       categoryId: "ba7adc02-de35-4405-b3f3-7391947d6281",
       categoryName: "Santos",
-      keywords: keywords.join(", "),
+      keywords: Array.isArray(keywords) ? keywords.join(", ") : "",
       metaDescription,
       publishDate: new Date().toISOString(),
       isActive: true,
     };
 
-    console.log("remotePayload: "+remotePayload)
+    // 🚀 Evita erro de toString e mostra o JSON completo
+    console.log("🧾 Payload pronto para envio remoto:");
+    console.log(JSON.stringify(remotePayload, null, 2));
+
     console.log("🌐 Enviando artigo para o site remoto...");
     const remoteRes = await fetch(process.env.REMOTE_DESTINATION_URL!, {
       method: "POST",

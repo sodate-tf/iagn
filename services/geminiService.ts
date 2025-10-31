@@ -67,7 +67,8 @@ Não force a inclusão se não parecer natural; priorize a fluidez e o sentido e
 Escreva um artigo cativante e detalhado sobre "${topic}". 
 O artigo deve ter um título claro, uma introdução envolvente, subtítulos temáticos, corpo bem estruturado e uma conclusão edificante. 
 O tom deve ser inspirador e próximo, adequado para jovens católicos que buscam crescer na fé. 
-O idioma do artigo deve ser: ${language}.
+O idioma do artigo deve ser: ${language}. 
+Começe o texto direto, não faça nenhum comentário de como você entendeu e que vai escrever, apenas inicie o post 
 `;
 ;
 
