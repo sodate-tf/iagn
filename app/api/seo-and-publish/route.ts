@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
     console.log(JSON.stringify(remotePayload, null, 2));
 
     console.log("🌐 Enviando artigo para o site remoto...");
-    const remoteRes = await fetch(process.env.REMOTE_DESTINATION_URL!, {
+    const remoteRes = await fetch(process.env.REMOTE_POST_URL!, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
