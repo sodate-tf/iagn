@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { analyzeSeoAndExtractMetadata } from "@/services/geminiService";
-import { getArticleById, updateArticleSeo } from "@/app/actions"; // usa updateArticle genérico
+import { getArticleById, updateArticleSeo } from "@/app/actions"; // ✅ usa updateArticle genérico
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
       metaDescription
     });
 
-    console.log(`💾 SEO salvo no banco para artigo ID ${id}`);
+    console.log(`💾 SEO atualizado e artigo ${id} marcado como publicado.`);
 
     // 4️⃣ Publica remotamente no site principal
     const remotePayload = {

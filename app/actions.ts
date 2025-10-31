@@ -103,24 +103,43 @@ export async function updateArticleHtml(id: string, formattedContent: string) {
 }
 
 /** 4️⃣ Atualiza dados de SEO e marca como publicado */
+
 export async function updateArticleSeo(
   id: string,
-  data: { keywords: string[]; metaDescription: string; status?: string }
+  data: { keywords: string[] | string; metaDescription: string; status?: string }
 ) {
   try {
+    // 🧠 Garante que keywords sempre será um array de strings
+    let keywords: string[];
+
+    if (Array.isArray(data.keywords)) {
+      keywords = data.keywords;
+    } else if (typeof data.keywords === "string") {
+      keywords = data.keywords.split(",").map((k) => k.trim());
+    } else {
+      keywords = [];
+    }
+
+    const metaDescription = data.metaDescription || "";
+
     await dbService.updateArticle(id, {
-      keywords: data.keywords,
-      metaDescription: data.metaDescription,
+      keywords,
+      metaDescription,
       published: true,
       generationDate: new Date().toISOString(),
     });
+
     console.log(`🔍 SEO atualizado e artigo ${id} publicado com sucesso.`);
     revalidatePath("/dashboard/history");
-  } catch (error) {
+  } catch (error: any) {
     console.error("❌ Erro ao atualizar SEO:", error);
-    throw new Error("Falha ao atualizar SEO do artigo.");
+    throw new Error(
+      error?.message || "Falha ao atualizar os dados de SEO do artigo."
+    );
   }
 }
+
+
 
 /* =========================================================
    🔹 LISTAGEM (inalterada)
