@@ -4,7 +4,7 @@
   "/api/calendar/today/route": "/api/calendar/today",
   "/api/format-article/route": "/api/format-article",
   "/api/generate-and-publish/route": "/api/generate-and-publish",
-  "/api/gerenate-article/route": "/api/gerenate-article",
+  "/api/generate-article/route": "/api/generate-article",
   "/api/seo-and-publish/route": "/api/seo-and-publish",
   "/dashboard/history/page": "/dashboard/history",
   "/dashboard/page": "/dashboard",

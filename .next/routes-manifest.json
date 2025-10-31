@@ -58,10 +58,10 @@
       "namedRegex": "^/api/generate\\-and\\-publish(?:/)?$"
     },
     {
-      "page": "/api/gerenate-article",
-      "regex": "^/api/gerenate\\-article(?:/)?$",
+      "page": "/api/generate-article",
+      "regex": "^/api/generate\\-article(?:/)?$",
       "routeKeys": {},
-      "namedRegex": "^/api/gerenate\\-article(?:/)?$"
+      "namedRegex": "^/api/generate\\-article(?:/)?$"
     },
     {
       "page": "/api/seo-and-publish",

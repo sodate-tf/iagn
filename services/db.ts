@@ -1,5 +1,8 @@
-import { neon } from "@neondatabase/serverless";
+import { neon, neonConfig } from "@neondatabase/serverless";
 import { ArtigoNoticia } from "../types";
+
+// 🔧 Melhora performance e cache de conexão no ambiente serverless
+neonConfig.fetchConnectionCache = true;
 
 if (!process.env.POSTGRES_URL) {
   throw new Error("Variável de ambiente POSTGRES_URL não definida.");
@@ -8,14 +11,14 @@ if (!process.env.POSTGRES_URL) {
 const sql = neon(process.env.POSTGRES_URL);
 
 /* =========================================================
-   🔹 Função auxiliar para mapear os campos do banco
+   🔹 Função auxiliar para mapear o resultado
    ========================================================= */
 const mapRowToArticle = (row: any): ArtigoNoticia => ({
   id: String(row.id),
   generationDate: row.generation_date,
   title: row.title,
   rawContent: row.raw_content,
-  formattedContent: row.formatted_content,
+  formattedContent: row.formatted_content || "",
   published: row.published,
   keywords: Array.isArray(row.keywords)
     ? row.keywords
@@ -26,7 +29,7 @@ const mapRowToArticle = (row: any): ArtigoNoticia => ({
 });
 
 /* =========================================================
-   🏗️ Criação da tabela, se não existir
+   🏗️ Criação da tabela
    ========================================================= */
 export async function setupDatabase() {
   try {
@@ -42,7 +45,7 @@ export async function setupDatabase() {
         meta_description TEXT
       );
     `;
-    console.log("✅ Tabela 'articles' verificada ou criada com sucesso.");
+    console.log("✅ Tabela 'articles' verificada/criada com sucesso.");
   } catch (error) {
     console.error("❌ Falha na configuração do banco de dados:", error);
     throw new Error("Falha ao configurar a tabela do banco de dados.");
@@ -50,51 +53,38 @@ export async function setupDatabase() {
 }
 
 /* =========================================================
-   💾 Inserir novo artigo (completo ou rascunho)
+   💾 Inserir artigo completo
    ========================================================= */
 export async function saveArticle(article: Omit<ArtigoNoticia, "id">): Promise<ArtigoNoticia> {
   try {
-    const {
-      generationDate,
-      title,
-      rawContent,
-      formattedContent,
-      published,
-      keywords,
-      metaDescription,
-    } = article;
-
     const result = await sql`
       INSERT INTO articles (
         generation_date, title, raw_content, formatted_content, published, keywords, meta_description
       )
       VALUES (
-        ${generationDate},
-        ${title},
-        ${rawContent},
-        ${formattedContent || ""},
-        ${published ?? false},
-        ${Array.isArray(keywords) ? keywords : [keywords]},
-        ${metaDescription || ""}
+        ${article.generationDate},
+        ${article.title},
+        ${article.rawContent},
+        ${article.formattedContent || ""},
+        ${article.published ?? false},
+        ${Array.isArray(article.keywords) ? article.keywords : [article.keywords]},
+        ${article.metaDescription || ""}
       )
       RETURNING *;
     `;
 
-    if (result.length === 0)
-      throw new Error("Falha ao salvar o artigo, nenhum resultado retornado.");
-
-    console.log(`💾 Artigo salvo com sucesso (ID: ${result[0].id})`);
-    return mapRowToArticle(result[0]);
+    const row = Array.isArray(result) ? result[0] : (result as any);
+    console.log(`💾 Artigo salvo com sucesso (ID: ${row.id})`);
+    return mapRowToArticle(row);
   } catch (error) {
     console.error("❌ Erro ao salvar artigo:", error);
     throw new Error("Falha ao salvar o artigo.");
   }
 }
 
-
-/**
- * Salva um rascunho inicial do artigo (antes da formatação e SEO)
- */
+/* =========================================================
+   ✏️ Salvar rascunho inicial (pré-formatação)
+   ========================================================= */
 export async function saveArticleDraft(data: {
   title: string;
   content: string;
@@ -106,7 +96,10 @@ export async function saveArticleDraft(data: {
       VALUES (NOW(), ${data.title}, ${data.content}, '', false)
       RETURNING id;
     `;
-    return { id: result[0].id.toString() };
+
+    const row = Array.isArray(result) ? result[0] : (result as any);
+    console.log(`📝 Rascunho salvo com ID: ${row.id}`);
+    return { id: String(row.id) };
   } catch (error) {
     console.error("❌ Erro ao salvar rascunho:", error);
     throw new Error("Falha ao salvar o rascunho do artigo.");
@@ -116,59 +109,42 @@ export async function saveArticleDraft(data: {
 /* =========================================================
    🔍 Buscar artigo por ID
    ========================================================= */
-/**
- * Busca um artigo pelo ID.
- */
 export async function getArticleById(id: string | number) {
   try {
-    const result = await sql`
-      SELECT * FROM articles WHERE id = ${id} LIMIT 1;
-    `;
-    const rows = Array.isArray(result) ? result : result ? [result] : [];
-    if (rows.length === 0) return null;
-   console.log("## retorno do select")
-   console.log(rows)
-    return {
-      id: String(rows[0].id),
-      generationDate: rows[0].generation_date,
-      title: rows[0].title,
-      rawContent: rows[0].raw_content,
-      formattedContent: rows[0].formatted_content,
-      published: rows[0].published,
-      keywords: rows[0].keywords || [],
-      metaDescription: rows[0].meta_description || '',
-    };
+    const result = await sql`SELECT * FROM articles WHERE id = ${id} LIMIT 1;`;
+    const row = Array.isArray(result) ? result[0] : (result as any);
+    if (!row) return null;
+
+    console.log("## retorno do select");
+    console.log(row);
+    return mapRowToArticle(row);
   } catch (error) {
     console.error("❌ Erro ao buscar artigo:", error);
     throw new Error("Falha ao buscar o artigo por ID.");
   }
 }
 
-
 /* =========================================================
-   ✏️ Atualizar artigo (HTML, SEO, status etc.)
+   🪄 Atualizar artigo genérico
    ========================================================= */
 export async function updateArticle(id: string, data: Partial<ArtigoNoticia>): Promise<void> {
   try {
     const keys = Object.keys(data);
     if (keys.length === 0) return;
 
-    // Monta os pares campo = valor de forma segura
-    const setClauses = keys.map((key, i) => {
-      const dbField = key.replace(/([A-Z])/g, "_$1").toLowerCase(); // camelCase → snake_case
-      return `${dbField} = $${i + 1}`;
-    });
-
+    // Monta os campos dinamicamente
+    const setClause = keys
+      .map((key, i) => `${key.replace(/([A-Z])/g, "_$1").toLowerCase()} = $${i + 1}`)
+      .join(", ");
     const values = Object.values(data);
+
     const query = `
       UPDATE articles
-      SET ${setClauses.join(", ")}
-      WHERE id = $${keys.length + 1}
-      RETURNING *;
+      SET ${setClause}
+      WHERE id = $${keys.length + 1};
     `;
 
-    // Executa query dinâmica de forma compatível
-    await sql(query as any, ...values, id);
+    await sql(query, [...values, id]);
     console.log(`📝 Artigo ${id} atualizado (${keys.join(", ")})`);
   } catch (error) {
     console.error("❌ Erro ao atualizar artigo:", error);
@@ -176,15 +152,11 @@ export async function updateArticle(id: string, data: Partial<ArtigoNoticia>): P
   }
 }
 
-/**
- * Atualiza o campo formatted_content de um artigo específico
- */
-/**
- * Atualiza o campo formatted_content de um artigo específico no banco.
- */
+/* =========================================================
+   🧱 Atualizar apenas o HTML
+   ========================================================= */
 export async function updateArticleHtml(id: string | number, html: string) {
   try {
-    // Executa o update no Neon
     const result = await sql`
       UPDATE articles
       SET formatted_content = ${html}
@@ -192,28 +164,29 @@ export async function updateArticleHtml(id: string | number, html: string) {
       RETURNING id, title, formatted_content;
     `;
 
-    // 🔍 Normaliza o retorno (o Neon pode devolver objeto único, não array)
-    const rows = Array.isArray(result) ? result : result ? [result] : [];
-
-    if (rows.length === 0) {
-      throw new Error(`Nenhum artigo retornado após o update (ID ${id}).`);
-    }
+    // Normaliza para garantir compatibilidade
+    const row = Array.isArray(result) ? result[0] : (result as any);
+    if (!row) throw new Error(`Nenhum artigo retornado após o update (ID ${id}).`);
 
     console.log(`✅ HTML atualizado com sucesso para o artigo ID ${id}.`);
-    return rows[0];
+    return {
+      id: String(row.id),
+      title: row.title,
+      formattedContent: row.formatted_content,
+    };
   } catch (error) {
     console.error("❌ Erro ao atualizar o artigo:", error);
     throw new Error("Falha ao atualizar o artigo.");
   }
 }
 
-
 /* =========================================================
    📋 Buscar todos os artigos
    ========================================================= */
 export async function getArticles(): Promise<ArtigoNoticia[]> {
   try {
-    const rows = await sql`SELECT * FROM articles ORDER BY generation_date DESC;`;
+    const result = await sql`SELECT * FROM articles ORDER BY generation_date DESC;`;
+    const rows = Array.isArray(result) ? result : (result ? [result] : []);
     return rows.map(mapRowToArticle);
   } catch (error) {
     console.error("❌ Erro ao buscar artigos:", error);
@@ -222,12 +195,12 @@ export async function getArticles(): Promise<ArtigoNoticia[]> {
 }
 
 /* =========================================================
-   🗑️ (Opcional) Deletar artigo
+   🗑️ Excluir artigo
    ========================================================= */
 export async function deleteArticle(id: string): Promise<void> {
   try {
     await sql`DELETE FROM articles WHERE id = ${id};`;
-    console.log(`🗑️ Artigo ${id} removido.`);
+    console.log(`🗑️ Artigo ${id} removido com sucesso.`);
   } catch (error) {
     console.error("❌ Erro ao excluir artigo:", error);
     throw new Error("Falha ao excluir o artigo.");

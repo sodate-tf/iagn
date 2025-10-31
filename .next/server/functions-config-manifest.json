@@ -1,13 +1,13 @@
 {
   "version": 1,
   "functions": {
-    "/api/gerenate-article": {
+    "/api/format-article": {
       "maxDuration": 120
     },
     "/api/generate-and-publish": {
       "maxDuration": 120
     },
-    "/api/format-article": {
+    "/api/generate-article": {
       "maxDuration": 120
     },
     "/api/seo-and-publish": {
