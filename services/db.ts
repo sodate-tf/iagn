@@ -126,7 +126,8 @@ export async function getArticleById(id: string | number) {
     `;
     const rows = Array.isArray(result) ? result : result ? [result] : [];
     if (rows.length === 0) return null;
-
+   console.log("## retorno do select")
+   console.log(rows)
     return {
       id: String(rows[0].id),
       generationDate: rows[0].generation_date,
