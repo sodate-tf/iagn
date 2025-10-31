@@ -1,234 +1,365 @@
-
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { NomeAgente } from '../types';
-import { Bot, Calendar, UploadCloud, FileText, Upload, Languages, KeyRound, Search } from 'lucide-react';
-// FIX: Removed unused useSettings import as settings are now passed via props.
-// import { useSettings } from '../context/SettingsContext';
+import React, { useState, useEffect } from "react";
+import { NomeAgente } from "../types";
+import {
+  Bot,
+  Calendar,
+  UploadCloud,
+  FileText,
+  Upload,
+  Languages,
+  KeyRound,
+  Search,
+  Loader2,
+  CheckCircle2,
+} from "lucide-react";
 
 interface AgentConfig {
   instructions: string;
   files: File[];
 }
 
-const defaultWriterInstructions = `Você é um jornalista de IA especializado em criar artigos de notícias claros, concisos e imparciais. Sua tarefa é pegar um tópico e expandi-lo em um artigo completo.
-- Crie um título informativo e que chame a atenção.
-- Escreva uma introdução que resuma os pontos principais.
-- Desenvolva o corpo do artigo com informações detalhadas, organizadas em parágrafos lógicos.
-- Conclua o artigo com um breve resumo ou uma perspectiva futura.
-- Mantenha um tom neutro e profissional.`;
+interface AiSettings {
+  id: string;
+  agent_name: string;
+  ai_model: string;
+  calendar_id: string;
+  focus_keywords: string;
+  remote_post_url: string;
+  remote_post_api_key: string;
+  json_format_template: string;
+  writer_instructions: string;
+  formatter_instructions: string;
+  seo_instructions: string;
+}
 
-const defaultFormatterInstructions = `Você é um especialista em HTML e CSS que recebe um texto de artigo bruto e o formata em um HTML bem estruturado usando Tailwind CSS para um portal de notícias com tema escuro.
-- O output deve ser apenas código HTML.
-- Use tags semânticas como <article>, <h1>, <h2>, <p>, etc.
-- O container principal deve ter a classe "prose prose-invert max-w-none" para um estilo padrão agradável.
-- Garanta que o HTML seja limpo, legível e moderno.`;
+const defaultWriterInstructions = `Você é um jornalista de IA especializado em criar artigos claros e inspiradores sobre fé e espiritualidade.`;
+const defaultFormatterInstructions = `Você é um especialista em HTML que transforma artigos em HTML semântico e bonito, usando classes TailwindCSS.`;
+const defaultSeoInstructions = `Você é um especialista em SEO e otimização de conteúdo. Gere palavras-chave e meta descriptions relevantes.`;
 
-const defaultSeoInstructions = `Você é um especialista em SEO. Sua tarefa é analisar um artigo de notícia e extrair metadados para otimização em mecanismos de busca.
-- Gere uma lista de 5 a 10 palavras-chave altamente relevantes.
-- Escreva uma meta descrição concisa e atraente (máximo 160 caracteres).
-- Considere as palavras-chave de foco do blog como uma referência para suas sugestões.`;
-
-
-const blogPublisherBodyTemplate = `{
-  "title": "{{title}}",
-  "content": "{{content_html}}",
-  "author": "AI News Bot",
-  "status": "publish"
-}`;
-
-const AgentConfigCard: React.FC<{ title: NomeAgente; model: string; config: AgentConfig; setConfig: (config: AgentConfig) => void; icon: React.ReactNode }> = ({ title, model, config, setConfig, icon }) => {
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files) {
-      setConfig({ ...config, files: [...config.files, ...Array.from(event.target.files)] });
+const AgentConfigCard: React.FC<{
+  title: NomeAgente;
+  model: string;
+  config: AgentConfig;
+  setConfig: (config: AgentConfig) => void;
+  icon: React.ReactNode;
+}> = ({ title, model, config, setConfig, icon }) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      setConfig({
+        ...config,
+        files: [...config.files, ...Array.from(e.target.files)],
+      });
     }
   };
 
   return (
     <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-6">
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 mb-2">
         {icon}
         <h3 className="text-xl font-semibold text-white">{title}</h3>
       </div>
-      <p className="text-sm text-gray-500 font-mono bg-gray-900 px-2 py-1 rounded w-fit my-2">{model}</p>
-      
-      <div className="mt-4 space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-400 mb-1">Instruções do Agente (Prompt do Sistema)</label>
-          <textarea
-            value={config.instructions}
-            onChange={(e) => setConfig({ ...config, instructions: e.target.value })}
-            rows={8}
-            className="block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-gray-200 sm:text-sm focus:ring-primary focus:border-primary"
+      <p className="text-sm text-gray-500 font-mono bg-gray-900 px-2 py-1 rounded w-fit mb-4">
+        {model}
+      </p>
+      <textarea
+        value={config.instructions}
+        onChange={(e) => setConfig({ ...config, instructions: e.target.value })}
+        rows={8}
+        className="block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-gray-200 sm:text-sm focus:ring-primary focus:border-primary"
+      />
+      <div className="mt-4">
+        <label className="block text-sm font-medium text-gray-400 mb-1">
+          Arquivos de Conhecimento
+        </label>
+        <div className="flex flex-col items-center justify-center border-2 border-dashed border-gray-600 rounded-md py-6">
+          <Upload size={40} className="text-gray-500" />
+          <label
+            htmlFor={`file-upload-${title}`}
+            className="cursor-pointer text-primary hover:underline mt-2"
+          >
+            Carregar arquivos
+          </label>
+          <input
+            id={`file-upload-${title}`}
+            type="file"
+            className="hidden"
+            multiple
+            onChange={handleFileChange}
           />
         </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-400 mb-1">Arquivos de Conhecimento</label>
-          <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-600 border-dashed rounded-md">
-            <div className="space-y-1 text-center">
-              <Upload size={40} className="mx-auto text-gray-500"/>
-              <div className="flex text-sm text-gray-400">
-                <label htmlFor={`file-upload-${title}`} className="relative cursor-pointer bg-gray-800 rounded-md font-medium text-primary hover:text-primary-hover focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-offset-gray-900 focus-within:ring-primary">
-                  <span>Carregar arquivos</span>
-                  <input id={`file-upload-${title}`} name={`file-upload-${title}`} type="file" className="sr-only" multiple onChange={handleFileChange} />
-                </label>
-                <p className="pl-1">ou arraste e solte</p>
-              </div>
-              <p className="text-xs text-gray-500">Documentos, planilhas, etc.</p>
-            </div>
-          </div>
-          {config.files.length > 0 && (
-            <div className="mt-3 space-y-2">
-              <h4 className="text-sm font-medium text-gray-300">Arquivos carregados:</h4>
-              <ul className="pl-5 list-disc space-y-1">
-                {config.files.map((file, index) => (
-                  <li key={index} className="text-sm text-gray-400 flex items-center gap-2">
-                    <FileText size={14}/> {file.name}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
+        {config.files.length > 0 && (
+          <ul className="mt-2 text-gray-400 text-sm space-y-1">
+            {config.files.map((file, i) => (
+              <li key={i} className="flex items-center gap-2">
+                <FileText size={14} /> {file.name}
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   );
 };
 
-// FIX: Add props interface for SettingsScreen component to handle state from parent.
-interface SettingsScreenProps {
-  currentLanguage: string;
-  currentFocusKeywords: string;
-  onSave: (settings: { language: string; focusKeywords: string }) => void;
-}
+export const SettingsScreen: React.FC = () => {
+  const [settings, setSettings] = useState<AiSettings | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
 
-export const SettingsScreen: React.FC<SettingsScreenProps> = ({ currentLanguage, currentFocusKeywords, onSave }) => {
-  const [calendarId, setCalendarId] = useState('primary');
-  const [publisherApi, setPublisherApi] = useState('https://meublog.com/api/v1/posts');
-  const [publisherBody, setPublisherBody] = useState(blogPublisherBodyTemplate);
-  
-  const [language, setLanguage] = useState(currentLanguage);
-  const [focusKeywords, setFocusKeywords] = useState(currentFocusKeywords);
+  const [writerConfig, setWriterConfig] = useState<AgentConfig>({
+    instructions: defaultWriterInstructions,
+    files: [],
+  });
+  const [formatterConfig, setFormatterConfig] = useState<AgentConfig>({
+    instructions: defaultFormatterInstructions,
+    files: [],
+  });
+  const [seoConfig, setSeoConfig] = useState<AgentConfig>({
+    instructions: defaultSeoInstructions,
+    files: [],
+  });
 
+  // 🔹 Carregar configs do banco
   useEffect(() => {
-    setLanguage(currentLanguage);
-    setFocusKeywords(currentFocusKeywords);
-  }, [currentLanguage, currentFocusKeywords]);
+    async function loadSettings() {
+      try {
+        const res = await fetch("/api/settings");
+        if (!res.ok) throw new Error("Erro ao carregar configurações");
+        const data = await res.json();
+        setSettings(data);
 
-  const [writerConfig, setWriterConfig] = useState<AgentConfig>({ instructions: defaultWriterInstructions, files: [] });
-  const [formatterConfig, setFormatterConfig] = useState<AgentConfig>({ instructions: defaultFormatterInstructions, files: [] });
-  const [seoConfig, setSeoConfig] = useState<AgentConfig>({ instructions: defaultSeoInstructions, files: [] });
+        // 🧠 Atualiza os campos de texto dos agentes com os valores do banco
+        setWriterConfig({
+          instructions: data.writer_instructions || defaultWriterInstructions,
+          files: [],
+        });
+        setFormatterConfig({
+          instructions:
+            data.formatter_instructions || defaultFormatterInstructions,
+          files: [],
+        });
+        setSeoConfig({
+          instructions: data.seo_instructions || defaultSeoInstructions,
+          files: [],
+        });
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadSettings();
+  }, []);
 
-  const handleSaveChanges = () => {
-    onSave({ language, focusKeywords });
-    
-    console.log("Saving settings:", {
-        language,
-        focusKeywords,
-        calendarId,
-        publisher: { api: publisherApi, body: publisherBody },
-        writer: writerConfig,
-        formatter: formatterConfig,
-        seo: seoConfig
-    });
-    alert("Configurações salvas! (Simulado)");
+  // 🔹 Salvar alterações
+  const handleSaveChanges = async () => {
+    if (!settings) return;
+    setSaving(true);
+    setSaved(false);
+
+    try {
+      const payload = {
+        ai_model: settings.ai_model || "gemini-1.5-flash",
+        calendar_id: settings.calendar_id,
+        focus_keywords: settings.focus_keywords,
+        remote_post_url: settings.remote_post_url,
+        remote_post_api_key: settings.remote_post_api_key,
+        json_format_template: settings.json_format_template,
+
+        writer_instructions: writerConfig.instructions,
+        writer_files: JSON.stringify(
+          writerConfig.files.map((f) => ({ name: f.name, size: f.size }))
+        ),
+
+        formatter_instructions: formatterConfig.instructions,
+        formatter_files: JSON.stringify(
+          formatterConfig.files.map((f) => ({ name: f.name, size: f.size }))
+        ),
+
+        seo_instructions: seoConfig.instructions,
+        seo_files: JSON.stringify(
+          seoConfig.files.map((f) => ({ name: f.name, size: f.size }))
+        ),
+      };
+
+      console.log("🧠 Salvando configurações...", payload);
+
+      const res = await fetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) throw new Error("Erro ao salvar configurações no servidor");
+
+      setSaved(true);
+      console.log("✅ Configurações salvas com sucesso!");
+    } catch (err) {
+      console.error("❌ Falha ao salvar configurações:", err);
+      alert("Erro ao salvar configurações.");
+    } finally {
+      setSaving(false);
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center py-10 text-gray-300">
+        <Loader2 className="animate-spin mr-2" /> Carregando configurações...
+      </div>
+    );
+  }
+
+  if (!settings) {
+    return (
+      <div className="text-center py-10 text-red-400">
+        Nenhuma configuração encontrada no banco.
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 max-w-4xl mx-auto">
       <div>
-        <h1 className="text-3xl font-bold text-white">Configurações</h1>
+        <h1 className="text-3xl font-bold text-white">
+          ⚙️ Configurações do Agente
+        </h1>
         <p className="mt-2 text-gray-400">
-          Personalize as integrações e o comportamento dos agentes de IA para o seu fluxo de trabalho.
+          Personalize integrações e comportamento dos agentes de IA.
         </p>
       </div>
 
-      <div className="space-y-8">
-        {/* --- Configurações de Integração --- */}
-        <div className="bg-gray-800 border border-gray-700 rounded-lg p-8">
-            <h2 className="text-xl font-semibold text-white mb-6">Configurações de Integração</h2>
-            <div className="space-y-6">
-                {/* Idioma de Geração */}
-                <div>
-                    <label htmlFor="language-select" className="flex items-center gap-2 text-lg font-medium text-gray-300 mb-2"><Languages size={20}/> Idioma de Geração</label>
-                    <select
-                        id="language-select"
-                        value={language}
-                        onChange={(e) => setLanguage(e.target.value)}
-                        className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-gray-200 sm:text-sm focus:ring-primary focus:border-primary"
-                    >
-                        <option>Português do Brasil</option>
-                        <option>English</option>
-                        <option>Español</option>
-                    </select>
-                </div>
-                {/* Focus Keywords */}
-                <div>
-                    <label htmlFor="focus-keywords" className="flex items-center gap-2 text-lg font-medium text-gray-300 mb-2"><KeyRound size={20}/> Palavras-chave de Foco do Blog</label>
-                    <textarea
-                        id="focus-keywords"
-                        value={focusKeywords}
-                        onChange={(e) => setFocusKeywords(e.target.value)}
-                        rows={3}
-                        placeholder="Ex: tecnologia, IA, inovação, futuro"
-                        className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-gray-200 sm:text-sm focus:ring-primary focus:border-primary"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">Separe as palavras-chave por vírgula. Elas servirão de guia para os agentes de IA.</p>
-                </div>
-                {/* Google Calendar */}
-                <div>
-                    <label htmlFor="calendar-id" className="flex items-center gap-2 text-lg font-medium text-gray-300 mb-2"><Calendar size={20}/> Google Calendar</label>
-                    <input
-                        type="text"
-                        id="calendar-id"
-                        value={calendarId}
-                        onChange={(e) => setCalendarId(e.target.value)}
-                        placeholder="ID do Calendário (ex: primary)"
-                        className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-gray-200 sm:text-sm focus:ring-primary focus:border-primary"
-                    />
-                </div>
-                {/* Blog Publisher */}
-                <div>
-                    <label htmlFor="publisher-api" className="flex items-center gap-2 text-lg font-medium text-gray-300 mb-2"><UploadCloud size={20}/> Publicador de Blog</label>
-                    <input
-                        type="text"
-                        id="publisher-api"
-                        value={publisherApi}
-                        onChange={(e) => setPublisherApi(e.target.value)}
-                        placeholder="Endpoint da API do Blog"
-                        className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-gray-200 sm:text-sm focus:ring-primary focus:border-primary"
-                    />
-                    <label htmlFor="publisher-body" className="block text-sm font-medium text-gray-400 mt-4 mb-1">Modelo do Corpo da Requisição (JSON)</label>
-                    <textarea
-                        id="publisher-body"
-                        value={publisherBody}
-                        onChange={(e) => setPublisherBody(e.target.value)}
-                        rows={6}
-                        className="font-mono block w-full bg-gray-900 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-gray-200 sm:text-sm focus:ring-primary focus:border-primary"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">{'Use placeholders como `{{title}}` e `{{content_html}}`.'}</p>
-                </div>
-            </div>
+      {/* Configurações principais */}
+      <div className="bg-gray-800 border border-gray-700 rounded-lg p-8 space-y-6">
+        <h2 className="text-xl font-semibold text-white mb-6">
+          Configurações de Integração
+        </h2>
+
+        <div>
+          <label className="flex items-center gap-2 text-lg font-medium text-gray-300 mb-2">
+            <Languages size={20} /> Idioma / Modelo de IA
+          </label>
+          <input
+            type="text"
+            value={settings.ai_model}
+            onChange={(e) =>
+              setSettings({ ...settings, ai_model: e.target.value })
+            }
+            className="block w-full bg-gray-700 border border-gray-600 rounded-md py-2 px-3 text-gray-200 focus:ring-primary focus:border-primary"
+          />
         </div>
 
-        {/* --- Configurações dos Agentes --- */}
-        <div className="space-y-6">
-            <h2 className="text-xl font-semibold text-white">Configuração dos Agentes de IA</h2>
-            <AgentConfigCard title={NomeAgente.ESCRITOR} model="gemini-1.5-flash" config={writerConfig} setConfig={setWriterConfig} icon={<Bot size={24} className="text-primary"/>}/>
-            <AgentConfigCard title={NomeAgente.FORMATADOR} model="gemini-1.5-flash" config={formatterConfig} setConfig={setFormatterConfig} icon={<Bot size={24} className="text-primary"/>}/>
-            <AgentConfigCard title={NomeAgente.SEO} model="gemini-1.5-flash" config={seoConfig} setConfig={setSeoConfig} icon={<Search size={24} className="text-primary"/>}/>
+        <div>
+          <label className="flex items-center gap-2 text-lg font-medium text-gray-300 mb-2">
+            <KeyRound size={20} /> Palavras-chave de Foco
+          </label>
+          <textarea
+            value={settings.focus_keywords || ""}
+            onChange={(e) =>
+              setSettings({ ...settings, focus_keywords: e.target.value })
+            }
+            rows={3}
+            className="w-full bg-gray-700 border border-gray-600 rounded-md py-2 px-3 text-gray-200"
+          />
         </div>
-        
-        <div className="pt-4 flex justify-end">
-            <button
-                type="button"
-                onClick={handleSaveChanges}
-                className="px-6 py-2 font-semibold text-white bg-primary rounded-lg shadow-md hover:bg-primary-hover transition-colors duration-200"
-            >
-                Salvar Alterações
-            </button>
+
+        <div>
+          <label className="flex items-center gap-2 text-lg font-medium text-gray-300 mb-2">
+            <Calendar size={20} /> ID do Calendário
+          </label>
+          <input
+            type="text"
+            value={settings.calendar_id || ""}
+            onChange={(e) =>
+              setSettings({ ...settings, calendar_id: e.target.value })
+            }
+            className="block w-full bg-gray-700 border border-gray-600 rounded-md py-2 px-3 text-gray-200"
+          />
         </div>
+
+        <div>
+          <label className="flex items-center gap-2 text-lg font-medium text-gray-300 mb-2">
+            <UploadCloud size={20} /> URL da API Remote Post
+          </label>
+          <input
+            type="text"
+            value={settings.remote_post_url || ""}
+            onChange={(e) =>
+              setSettings({ ...settings, remote_post_url: e.target.value })
+            }
+            className="block w-full bg-gray-700 border border-gray-600 rounded-md py-2 px-3 text-gray-200"
+          />
+          <label className="block text-sm text-gray-400 mt-4 mb-1">
+            Corpo do JSON
+          </label>
+          <textarea
+            value={settings.json_format_template || ""}
+            onChange={(e) =>
+              setSettings({
+                ...settings,
+                json_format_template: e.target.value,
+              })
+            }
+            rows={6}
+            className="font-mono w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-gray-200"
+          />
+        </div>
+      </div>
+
+      {/* Seção dos Agentes */}
+      <div className="space-y-6">
+        <h2 className="text-xl font-semibold text-white">
+          Configuração dos Agentes
+        </h2>
+
+        <AgentConfigCard
+          title={NomeAgente.ESCRITOR}
+          model={settings.ai_model}
+          config={writerConfig}
+          setConfig={setWriterConfig}
+          icon={<Bot size={24} className="text-primary" />}
+        />
+        <AgentConfigCard
+          title={NomeAgente.FORMATADOR}
+          model={settings.ai_model}
+          config={formatterConfig}
+          setConfig={setFormatterConfig}
+          icon={<Bot size={24} className="text-primary" />}
+        />
+        <AgentConfigCard
+          title={NomeAgente.SEO}
+          model={settings.ai_model}
+          config={seoConfig}
+          setConfig={setSeoConfig}
+          icon={<Search size={24} className="text-primary" />}
+        />
+      </div>
+
+      <div className="pt-4 flex justify-end">
+        <button
+          onClick={handleSaveChanges}
+          disabled={saving}
+          className={`px-6 py-2 font-semibold text-white rounded-lg shadow-md transition-colors ${
+            saving
+              ? "bg-gray-600 cursor-wait"
+              : "bg-primary hover:bg-primary-hover"
+          }`}
+        >
+          {saving ? (
+            <span className="flex items-center gap-2">
+              <Loader2 className="animate-spin" /> Salvando...
+            </span>
+          ) : saved ? (
+            <span className="flex items-center gap-2 text-green-400">
+              <CheckCircle2 /> Salvo!
+            </span>
+          ) : (
+            "Salvar Alterações"
+          )}
+        </button>
       </div>
     </div>
   );

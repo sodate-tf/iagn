@@ -12,10 +12,6 @@ export default function SettingsPage() {
   };
 
   return (
-    <SettingsScreen
-      currentLanguage={defaultLanguage}
-      currentFocusKeywords={defaultFocusKeywords}
-      onSave={handleSave}
-    />
+    <SettingsScreen />
   );
 }
