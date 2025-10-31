@@ -54,6 +54,7 @@ export async function POST(req: NextRequest) {
       isActive: true,
     };
 
+    console.log("remotePayload: "+remotePayload)
     console.log("🌐 Enviando artigo para o site remoto...");
     const remoteRes = await fetch(process.env.REMOTE_DESTINATION_URL!, {
       method: "POST",
