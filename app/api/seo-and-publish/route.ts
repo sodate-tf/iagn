@@ -5,6 +5,18 @@ import { getArticleById, updateArticleSeo } from "@/app/actions";
 export const runtime = "nodejs";
 export const maxDuration = 120;
 
+function slugify(text: string): string {
+  return text
+    .normalize("NFD") // separa acentos das letras (ex: "ã" → "a" + "~")
+    .replace(/[\u0300-\u036f]/g, "") // remove todos os sinais diacríticos (acentos)
+    .replace(/[^a-zA-Z0-9\s-]/g, "") // remove qualquer caractere especial que não seja letra, número, espaço ou hífen
+    .trim() // remove espaços nas extremidades
+    .replace(/\s+/g, "-") // substitui espaços por hífens
+    .replace(/-+/g, "-") // evita múltiplos hífens consecutivos
+    .toLowerCase(); // converte tudo para minúsculas
+}
+
+
 export async function POST(req: NextRequest) {
   try {
     const { id } = await req.json();
@@ -44,10 +56,9 @@ export async function POST(req: NextRequest) {
     // 4️⃣ Publica remotamente no site principal
     const remotePayload = {
       title: article.title || "Artigo sem título",
-      slug:
-        typeof article.title === "string"
-          ? article.title.toLowerCase().replace(/[^\w]+/g, "-")
-          : "artigo-sem-titulo",
+      slug: typeof article.title === "string"
+        ? slugify(article.title)
+        : "artigo-sem-titulo",
       content:
         typeof article.formattedContent === "string"
           ? article.formattedContent
