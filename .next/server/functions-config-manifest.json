@@ -4,10 +4,10 @@
     "/api/format-article": {
       "maxDuration": 120
     },
-    "/api/generate-and-publish": {
+    "/api/generate-article": {
       "maxDuration": 120
     },
-    "/api/generate-article": {
+    "/api/generate-and-publish": {
       "maxDuration": 120
     },
     "/api/seo-and-publish": {

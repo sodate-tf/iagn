@@ -1,6 +1,6 @@
 {
   "node": {
-    "70f12876fc0e134895d97a7ded794efaca2a696c9b": {
+    "70330047c1298307ff7fdef5110df01c092421e5b3": {
       "workers": {
         "app/dashboard/history/page": {
           "moduleId": 86379,
@@ -15,7 +15,7 @@
       "exportedName": "generateAndSaveArticleAction",
       "filename": "app/actions.ts"
     },
-    "00fe0019f97a45ff59a91728708b782e5fa671df37": {
+    "00d002ddfe012e24faec6cada1f9d9a8ced2f790f6": {
       "workers": {
         "app/dashboard/history/page": {
           "moduleId": 86379,
@@ -30,22 +30,7 @@
       "exportedName": "getArticlesAction",
       "filename": "app/actions.ts"
     },
-    "400e61989097eb8b9f68c780e0d03ac63cfdf09c02": {
-      "workers": {
-        "app/dashboard/history/page": {
-          "moduleId": 86379,
-          "async": false,
-          "exportedName": "getArticleById",
-          "filename": "app/actions.ts"
-        }
-      },
-      "layer": {
-        "app/dashboard/history/page": "rsc"
-      },
-      "exportedName": "getArticleById",
-      "filename": "app/actions.ts"
-    },
-    "40beaf35ecbbfb8886c6be979c13bf3516a379c0e5": {
+    "4038f391a87bd49dec107d8c04cc2c695496eb1463": {
       "workers": {
         "app/dashboard/history/page": {
           "moduleId": 86379,
@@ -60,7 +45,22 @@
       "exportedName": "saveArticleDraft",
       "filename": "app/actions.ts"
     },
-    "600f1d6fd2e8bc63d9f50ada752da9b53c4faada57": {
+    "40b5bf1706de1ada9859a0f128952b901703fc8a93": {
+      "workers": {
+        "app/dashboard/history/page": {
+          "moduleId": 86379,
+          "async": false,
+          "exportedName": "getArticleById",
+          "filename": "app/actions.ts"
+        }
+      },
+      "layer": {
+        "app/dashboard/history/page": "rsc"
+      },
+      "exportedName": "getArticleById",
+      "filename": "app/actions.ts"
+    },
+    "60706bd66bb2a0f25cd04c25ad4e68d6f2c3d6a0b0": {
       "workers": {
         "app/dashboard/history/page": {
           "moduleId": 86379,
@@ -75,7 +75,7 @@
       "exportedName": "updateArticleHtml",
       "filename": "app/actions.ts"
     },
-    "60b3884135d67f03b04d28d68149fff07fc9729e4b": {
+    "60ba6bd16e0164ed735383e859c505c1100c00fc7a": {
       "workers": {
         "app/dashboard/history/page": {
           "moduleId": 86379,
