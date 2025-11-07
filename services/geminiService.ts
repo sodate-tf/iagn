@@ -1,23 +1,15 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import OpenAI from "openai";
 import { getSettings } from "@/services/configService";
 
 /* =============================================================
- * 🔑 Inicialização das APIs
+ * 🔑 Inicialização da API OpenAI
  * ============================================================= */
-if (!process.env.GEMINI_API_KEY) {
-  console.error("❌ [GeminiService] Variável de ambiente GEMINI_API_KEY não configurada!");
-} else {
-  console.log("✅ [GeminiService] GEMINI_API_KEY detectada com sucesso.");
-}
-
 if (!process.env.OPENAI_API_KEY) {
   console.error("❌ [OpenAIService] Variável de ambiente OPENAI_API_KEY não configurada!");
 } else {
   console.log("✅ [OpenAIService] OPENAI_API_KEY detectada com sucesso.");
 }
 
-const gemini = new GoogleGenerativeAI(process.env.GEMINI_API_KEY as string);
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY as string });
 
 /* =============================================================
@@ -40,15 +32,9 @@ export const writeNewsArticle = async (
   console.log("🧠 [writeNewsArticle] Gerando artigo com OpenAI (GPT-4o-mini)…");
 
   const settings = await loadAgentSettings();
-
   const prompt =
     settings.writer_instructions +
-    `
-Tema: "${topic}"  
-Idioma: ${language}  
-Palavras-chave foco: ${focusKeywords}
-
-` + ``;
+    `\n\nTema: "${topic}"\nIdioma: ${language}\nPalavras-chave foco: ${focusKeywords}`;
 
   try {
     const response = await openai.chat.completions.create({
@@ -67,31 +53,29 @@ Palavras-chave foco: ${focusKeywords}
 };
 
 /* =============================================================
- * 🎨 2. Conversão para HTML semântico — Gemini (novo SDK)
+ * 🎨 2. Conversão para HTML semântico — OpenAI (modelo leve)
  * ============================================================= */
 export const formatArticleToHtml = async (articleText: string): Promise<string> => {
-  console.log("🎨 [formatArticleToHtml] Iniciando formatação com Gemini 1.5 Flash…");
+  console.log("🎨 [formatArticleToHtml] Iniciando formatação com OpenAI (modelo leve)…");
 
   const settings = await loadAgentSettings();
   const prompt =
     settings.formatter_instructions +
-    `
-
-Texto para formatar:
-${articleText}
-
-` + ``;
+    `\n\nConverta o texto abaixo em HTML semântico responsivo, mantendo o conteúdo e estrutura católica do Blog Tio Ben.\n\n${articleText}`;
 
   try {
-    const model = gemini.getGenerativeModel({ model: settings.formatter_model || "gemini-1.5-flash" });
-    const result = await model.generateContent(prompt);
-    let htmlContent = result.response.text() || "";
+    // modelo leve para tarefas de formatação e parsing
+    const response = await openai.chat.completions.create({
+      model: "gpt-3.5-turbo", // 🧩 modelo mais leve e barato da OpenAI
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.3,
+    });
 
-    if (htmlContent.startsWith("```html")) htmlContent = htmlContent.slice(7);
-    if (htmlContent.endsWith("```")) htmlContent = htmlContent.slice(0, -3);
+    let htmlContent = response.choices[0]?.message?.content || "";
+    htmlContent = htmlContent.replace(/^```html\s*/i, "").replace(/```$/i, "").trim();
 
     console.log("✅ [formatArticleToHtml] HTML gerado com sucesso. Tamanho:", htmlContent.length);
-    return htmlContent.trim();
+    return htmlContent;
   } catch (error) {
     console.error("❌ [formatArticleToHtml] Erro ao gerar HTML:", error);
     throw new Error("Falha ao formatar o artigo para HTML.");
@@ -99,35 +83,60 @@ ${articleText}
 };
 
 /* =============================================================
- * 🔍 3. Extração de metadados SEO — Gemini (novo SDK)
+ * 🔍 3. Extração de metadados SEO — OpenAI (modelo leve)
  * ============================================================= */
 export const analyzeSeoAndExtractMetadata = async (
   articleText: string,
   focusKeywords: string
 ): Promise<{ keywords: string[]; metaDescription: string }> => {
-  console.log("🔍 [analyzeSeoAndExtractMetadata] Iniciando análise SEO com Gemini…");
+  console.log("🔍 [analyzeSeoAndExtractMetadata] Iniciando análise SEO com OpenAI…");
 
   const settings = await loadAgentSettings();
-  const prompt = settings.seo_instructions + `\n\nTexto:\n${articleText}\nPalavras-chave foco: ${focusKeywords}`;
+  const prompt = `
+${settings.seo_instructions}
+
+Gere uma lista de até 5 palavras-chave relevantes e uma meta descrição otimizada (máx. 160 caracteres)
+para o seguinte texto, levando em conta as palavras-chave foco: ${focusKeywords}.
+
+Texto:
+${articleText}
+`;
 
   try {
-    const model = gemini.getGenerativeModel({ model: settings.seo_model || "gemini-1.5-flash" });
-    const result = await model.generateContent(prompt);
-    const rawText = result.response.text();
+    const response = await openai.chat.completions.create({
+      model: "gpt-3.5-turbo", // 🔹 modelo simples e eficiente
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.4,
+    });
 
-    // tenta extrair JSON de dentro do texto
+    const rawText = response.choices[0]?.message?.content || "";
+
+    // tenta capturar dados estruturados
     const jsonStart = rawText.indexOf("{");
     const jsonEnd = rawText.lastIndexOf("}") + 1;
-    const parsed =
-      jsonStart !== -1 && jsonEnd !== -1
-        ? JSON.parse(rawText.slice(jsonStart, jsonEnd))
-        : { keywords: [], metaDescription: "" };
+    let parsed: { keywords: string[]; metaDescription: string } = {
+      keywords: [],
+      metaDescription: "",
+    };
+
+    try {
+      if (jsonStart !== -1 && jsonEnd !== -1) {
+        parsed = JSON.parse(rawText.slice(jsonStart, jsonEnd));
+      } else {
+        // fallback se vier texto solto
+        const keywordsMatch = rawText.match(/Palavras-chave: (.*)/i);
+        const metaMatch = rawText.match(/Meta descrição: (.*)/i);
+        parsed = {
+          keywords: keywordsMatch ? keywordsMatch[1].split(",").map(k => k.trim()) : [],
+          metaDescription: metaMatch ? metaMatch[1].trim() : rawText.slice(0, 160),
+        };
+      }
+    } catch {
+      parsed.metaDescription = rawText.slice(0, 160);
+    }
 
     console.log("✅ [analyzeSeoAndExtractMetadata] SEO extraído:", parsed);
-    return {
-      keywords: parsed.keywords || [],
-      metaDescription: parsed.metaDescription || "",
-    };
+    return parsed;
   } catch (error) {
     console.error("❌ [analyzeSeoAndExtractMetadata] Erro SEO:", error);
     return { keywords: [], metaDescription: "Não foi possível gerar a meta descrição." };

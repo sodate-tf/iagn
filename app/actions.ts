@@ -1,12 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import * as geminiService from "../services/geminiService";
+import * as openaiService from "../services/openaiService"; // 🧠 atualizado — serviço OpenAI
 import * as dbService from "../services/db";
 import { ArtigoNoticia } from "../types";
 
 /* =========================================================
-   🔹 MODO COMPLETO (para compatibilidade retroativa)
+   🔹 MODO COMPLETO (geração e publicação)
    ========================================================= */
 export async function generateAndSaveArticleAction(
   topic: string,
@@ -14,14 +14,14 @@ export async function generateAndSaveArticleAction(
   focusKeywords: string
 ): Promise<ArtigoNoticia> {
   try {
-    // 🧠 Etapa 1: IA Escritora
-    const rawContent = await geminiService.writeNewsArticle(topic, language, focusKeywords);
+    // 🧠 Etapa 1: IA Escritora (GPT-4o-mini)
+    const rawContent = await openaiService.writeNewsArticle(topic, language, focusKeywords);
 
-    // 🎨 Etapa 2: IA Formatadora
-    const formattedContent = await geminiService.formatArticleToHtml(rawContent);
+    // 🎨 Etapa 2: IA Formatadora (GPT-3.5-turbo)
+    const formattedContent = await openaiService.formatArticleToHtml(rawContent);
 
-    // 🔍 Etapa 3: IA de SEO
-    const { keywords, metaDescription } = await geminiService.analyzeSeoAndExtractMetadata(rawContent, focusKeywords);
+    // 🔍 Etapa 3: IA de SEO (GPT-3.5-turbo)
+    const { keywords, metaDescription } = await openaiService.analyzeSeoAndExtractMetadata(rawContent, focusKeywords);
 
     // 💾 Etapa 4: Salvar tudo no banco
     const articleToSave: Omit<ArtigoNoticia, "id"> = {
@@ -36,7 +36,7 @@ export async function generateAndSaveArticleAction(
 
     const savedArticle = await dbService.saveArticle(articleToSave);
 
-    // 🔁 Revalida histórico no dashboard
+    // 🔁 Atualiza o cache do dashboard
     revalidatePath("/dashboard/history");
 
     return { ...savedArticle, published: true };
@@ -47,7 +47,7 @@ export async function generateAndSaveArticleAction(
 }
 
 /* =========================================================
-   🔹 MODO MODULAR (para pipeline dividido)
+   🔹 MODO MODULAR (pipeline dividido)
    ========================================================= */
 
 /** 1️⃣ Gera o texto base e salva como rascunho */
@@ -103,13 +103,11 @@ export async function updateArticleHtml(id: string, formattedContent: string) {
 }
 
 /** 4️⃣ Atualiza dados de SEO e marca como publicado */
-
 export async function updateArticleSeo(
   id: string,
   data: { keywords: string[] | string; metaDescription: string; status?: string }
 ) {
   try {
-    // 🧠 Garante que keywords sempre será um array de strings
     let keywords: string[];
 
     if (Array.isArray(data.keywords)) {
@@ -133,13 +131,9 @@ export async function updateArticleSeo(
     revalidatePath("/dashboard/history");
   } catch (error: any) {
     console.error("❌ Erro ao atualizar SEO:", error);
-    throw new Error(
-      error?.message || "Falha ao atualizar os dados de SEO do artigo."
-    );
+    throw new Error(error?.message || "Falha ao atualizar os dados de SEO do artigo.");
   }
 }
-
-
 
 /* =========================================================
    🔹 LISTAGEM (inalterada)

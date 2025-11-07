@@ -20,23 +20,24 @@ const initialAgents: Agente[] = [
     status: StatusAgente.PENDENTE,
   },
   {
-    name: NomeAgente.ESCRITOR,
-    description: "Escreve o artigo de notícia com base no tópico.",
-    status: StatusAgente.PENDENTE,
-    model: "gemini-2.5-pro",
-  },
-  {
-    name: NomeAgente.FORMATADOR,
-    description: "Formata o artigo em HTML estilizado.",
-    status: StatusAgente.PENDENTE,
-    model: "gemini-2.5-flash",
-  },
-  {
-    name: NomeAgente.SEO,
-    description: "Analisa o SEO e extrai metadados.",
-    status: StatusAgente.PENDENTE,
-    model: "gemini-2.5-flash",
-  },
+  name: NomeAgente.ESCRITOR,
+  description: "Escreve o artigo de notícia com base no tópico.",
+  status: StatusAgente.PENDENTE,
+  model: "gpt-4o-mini", // 🧠 geração do artigo
+},
+{
+  name: NomeAgente.FORMATADOR,
+  description: "Formata o artigo em HTML estilizado.",
+  status: StatusAgente.PENDENTE,
+  model: "gpt-3.5-turbo", // 🎨 formatação leve e barata
+},
+{
+  name: NomeAgente.SEO,
+  description: "Analisa o SEO e extrai metadados.",
+  status: StatusAgente.PENDENTE,
+  model: "gpt-3.5-turbo", // 🔍 análise rápida e econômica
+},
+
   {
     name: NomeAgente.PUBLICADOR,
     description: "Salva o artigo final no banco de dados.",

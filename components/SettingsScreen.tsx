@@ -173,7 +173,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
     try {
       const payload = {
-        ai_model: settings.ai_model || "gemini-1.5-flash",
+        ai_model: settings.ai_model || "gpt-3.5-turbo",
         calendar_id: settings.calendar_id,
         focus_keywords: settings.focus_keywords,
         remote_post_url: settings.remote_post_url,
