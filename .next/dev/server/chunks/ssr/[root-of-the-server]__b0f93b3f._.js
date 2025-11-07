@@ -275,19 +275,7 @@ ${articleText}
 const analyzeSeoAndExtractMetadata = async (articleText, focusKeywords)=>{
     console.log("🔍 [analyzeSeoAndExtractMetadata] Iniciando análise SEO…");
     const settings = await loadAgentSettings();
-    const prompt = settings.seo_instructions + `
-
-Artigo:
-${articleText}
-
-Palavras-chave foco: ${focusKeywords}
-
-Retorne um JSON com:
-{
-  "keywords": [...],
-  "metaDescription": "..."
-}
-`;
+    const prompt = settings.seo_instructions;
     console.log("[analyzeSeoAndExtractMetadata] Instruções utilizadas:", settings.seo_instructions);
     try {
         const response = await ai.models.generateContent({

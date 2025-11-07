@@ -31,9 +31,14 @@ export interface AiSettings {
   formatter_files: string | null;
   seo_files: string | null;
 
+  formatter_model?: string;
+  seo_model?: string;
+
   created_at: string;
   updated_at: string;
 }
+
+
 
 /* =========================================================
    🔍 Buscar configurações atuais

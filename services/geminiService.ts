@@ -1,38 +1,54 @@
 import { GoogleGenAI, Type } from "@google/genai";
+import OpenAI from "openai";
 import { getSettings } from "@/services/configService";
 
+/* =============================================================
+ * 🔑 Inicialização das APIs
+ * ============================================================= */
 if (!process.env.GEMINI_API_KEY) {
   console.error("❌ [GeminiService] Variável de ambiente GEMINI_API_KEY não configurada!");
 } else {
   console.log("✅ [GeminiService] GEMINI_API_KEY detectada com sucesso.");
 }
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY as string });
+if (!process.env.OPENAI_API_KEY) {
+  console.error("❌ [OpenAIService] Variável de ambiente OPENAI_API_KEY não configurada!");
+} else {
+  console.log("✅ [OpenAIService] OPENAI_API_KEY detectada com sucesso.");
+}
 
-// ====================================================================
-// 📝 Função para obter configurações dinâmicas do banco
-// ====================================================================
+const gemini = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY as string });
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY as string });
+
+/* =============================================================
+ * ⚙️  Carrega configurações dinâmicas do banco
+ * ============================================================= */
 async function loadAgentSettings() {
   const settings = await getSettings();
-  if (!settings) {
-    throw new Error("Configurações de IA não encontradas no banco.");
-  }
+  if (!settings) throw new Error("Configurações de IA não encontradas no banco.");
   return settings;
 }
 
-// ====================================================================
-// 🕊️ 1. Criação do artigo jornalístico (texto bruto)
-// ====================================================================
-export const writeNewsArticle = async (topic: string, language: string, focusKeywords: string): Promise<string> => {
-  console.log("🕊️ [writeNewsArticle] Iniciando geração do artigo…");
+/* =============================================================
+ * 🧠 1. Criação do artigo jornalístico (GPT-4o-mini)
+ * ============================================================= */
+export const writeNewsArticle = async (
+  topic: string,
+  language: string,
+  focusKeywords: string
+): Promise<string> => {
+  console.log("🧠 [writeNewsArticle] Gerando artigo com OpenAI (GPT-4o-mini)…");
 
   const settings = await loadAgentSettings();
-  const prompt = settings.writer_instructions + `
+
+  const prompt =
+    settings.writer_instructions +
+    `
 Tema: "${topic}"  
 Idioma: ${language}  
 Palavras-chave foco: ${focusKeywords}
 
-` + /* o restante da montagem de prompt usando as instruções do banco */ ``;
+` + ``;
 
   console.log(`[writeNewsArticle] Tema: ${topic}`);
   console.log(`[writeNewsArticle] Idioma: ${language}`);
@@ -40,41 +56,51 @@ Palavras-chave foco: ${focusKeywords}
   console.log(`[writeNewsArticle] Instruções utilizadas:`, settings.writer_instructions);
 
   try {
-    const response = await ai.models.generateContent({
-      model: settings.ai_model,
-      contents: [{ parts: [{ text: prompt }] }],
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini", // 🔹 modelo fixo para este agente
+      messages: [
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+      temperature: 0.8,
     });
+
+    const text = response.choices[0]?.message?.content || "";
     console.log("✅ [writeNewsArticle] Artigo gerado com sucesso.");
-    return response.text;
+    return text.trim();
   } catch (error) {
     console.error("❌ [writeNewsArticle] Erro:", error);
-    throw new Error("Falha ao gerar o artigo de notícia pela IA.");
+    throw new Error("Falha ao gerar o artigo de notícia pela OpenAI.");
   }
 };
 
-// ====================================================================
-// 🎨 2. Conversão para HTML semântico
-// ====================================================================
+/* =============================================================
+ * 🎨 2. Conversão para HTML semântico — Gemini
+ * ============================================================= */
 export const formatArticleToHtml = async (articleText: string): Promise<string> => {
-  console.log("🎨 [formatArticleToHtml] Iniciando formatação do artigo…");
+  console.log("🎨 [formatArticleToHtml] Iniciando formatação com Gemini…");
 
   const settings = await loadAgentSettings();
-  const prompt = settings.formatter_instructions + `
+  const prompt =
+    settings.formatter_instructions +
+    `
 
 Texto para formatar:
 ${articleText}
 
-` + /* restante da montagem do prompt */ ``;
+` + ``;
 
   console.log("[formatArticleToHtml] Instruções utilizadas:", settings.formatter_instructions);
 
   try {
-    const response = await ai.models.generateContent({
-      model: settings.ai_model,
+    const response = await gemini.models.generateContent({
+      model: settings.formatter_model || "gemini-1.5-flash",
       contents: [{ parts: [{ text: prompt }] }],
     });
+
     let htmlContent = response.text || "";
-    // limpar possíveis wrappers
     if (htmlContent.startsWith("```html")) htmlContent = htmlContent.slice(7);
     if (htmlContent.endsWith("```")) htmlContent = htmlContent.slice(0, -3);
 
@@ -86,35 +112,23 @@ ${articleText}
   }
 };
 
-// ====================================================================
-// 🔍 3. Extração de metadados SEO
-// ====================================================================
+/* =============================================================
+ * 🔍 3. Extração de metadados SEO — Gemini
+ * ============================================================= */
 export const analyzeSeoAndExtractMetadata = async (
   articleText: string,
   focusKeywords: string
 ): Promise<{ keywords: string[]; metaDescription: string }> => {
-  console.log("🔍 [analyzeSeoAndExtractMetadata] Iniciando análise SEO…");
+  console.log("🔍 [analyzeSeoAndExtractMetadata] Iniciando análise SEO com Gemini…");
 
   const settings = await loadAgentSettings();
-  const prompt = settings.seo_instructions + `
-
-Artigo:
-${articleText}
-
-Palavras-chave foco: ${focusKeywords}
-
-Retorne um JSON com:
-{
-  "keywords": [...],
-  "metaDescription": "..."
-}
-`;
+  const prompt = settings.seo_instructions;
 
   console.log("[analyzeSeoAndExtractMetadata] Instruções utilizadas:", settings.seo_instructions);
 
   try {
-    const response = await ai.models.generateContent({
-      model: settings.ai_model,
+    const response = await gemini.models.generateContent({
+      model: settings.seo_model || "gemini-1.5-flash",
       contents: [{ parts: [{ text: prompt }] }],
       config: {
         responseMimeType: "application/json",
