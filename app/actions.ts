@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import * as openaiService from "../services/openaiService"; // 🧠 atualizado — serviço OpenAI
+import * as openaiService from "../services/geminiService"; // 🧠 atualizado — serviço OpenAI
 import * as dbService from "../services/db";
 import { ArtigoNoticia } from "../types";
 
