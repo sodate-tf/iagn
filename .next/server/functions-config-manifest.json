@@ -1,10 +1,10 @@
 {
   "version": 1,
   "functions": {
-    "/api/generate-and-publish": {
+    "/api/format-article": {
       "maxDuration": 120
     },
-    "/api/format-article": {
+    "/api/generate-and-publish": {
       "maxDuration": 120
     },
     "/api/generate-article": {

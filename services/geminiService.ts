@@ -1,4 +1,4 @@
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import OpenAI from "openai";
 import { getSettings } from "@/services/configService";
 
@@ -17,7 +17,7 @@ if (!process.env.OPENAI_API_KEY) {
   console.log("✅ [OpenAIService] OPENAI_API_KEY detectada com sucesso.");
 }
 
-const gemini = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY as string });
+const gemini = new GoogleGenerativeAI(process.env.GEMINI_API_KEY as string);
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY as string });
 
 /* =============================================================
@@ -50,20 +50,10 @@ Palavras-chave foco: ${focusKeywords}
 
 ` + ``;
 
-  console.log(`[writeNewsArticle] Tema: ${topic}`);
-  console.log(`[writeNewsArticle] Idioma: ${language}`);
-  console.log(`[writeNewsArticle] Palavras-chave: ${focusKeywords}`);
-  console.log(`[writeNewsArticle] Instruções utilizadas:`, settings.writer_instructions);
-
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini", // 🔹 modelo fixo para este agente
-      messages: [
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
+      model: "gpt-4o-mini",
+      messages: [{ role: "user", content: prompt }],
       temperature: 0.8,
     });
 
@@ -77,10 +67,10 @@ Palavras-chave foco: ${focusKeywords}
 };
 
 /* =============================================================
- * 🎨 2. Conversão para HTML semântico — Gemini
+ * 🎨 2. Conversão para HTML semântico — Gemini (novo SDK)
  * ============================================================= */
 export const formatArticleToHtml = async (articleText: string): Promise<string> => {
-  console.log("🎨 [formatArticleToHtml] Iniciando formatação com Gemini…");
+  console.log("🎨 [formatArticleToHtml] Iniciando formatação com Gemini 1.5 Flash…");
 
   const settings = await loadAgentSettings();
   const prompt =
@@ -92,15 +82,11 @@ ${articleText}
 
 ` + ``;
 
-  console.log("[formatArticleToHtml] Instruções utilizadas:", settings.formatter_instructions);
-
   try {
-    const response = await gemini.models.generateContent({
-      model: settings.formatter_model || "gemini-1.0-pro",
-      contents: [{ parts: [{ text: prompt }] }],
-    });
+    const model = gemini.getGenerativeModel({ model: settings.formatter_model || "gemini-1.5-flash" });
+    const result = await model.generateContent(prompt);
+    let htmlContent = result.response.text() || "";
 
-    let htmlContent = response.text || "";
     if (htmlContent.startsWith("```html")) htmlContent = htmlContent.slice(7);
     if (htmlContent.endsWith("```")) htmlContent = htmlContent.slice(0, -3);
 
@@ -113,7 +99,7 @@ ${articleText}
 };
 
 /* =============================================================
- * 🔍 3. Extração de metadados SEO — Gemini
+ * 🔍 3. Extração de metadados SEO — Gemini (novo SDK)
  * ============================================================= */
 export const analyzeSeoAndExtractMetadata = async (
   articleText: string,
@@ -122,31 +108,25 @@ export const analyzeSeoAndExtractMetadata = async (
   console.log("🔍 [analyzeSeoAndExtractMetadata] Iniciando análise SEO com Gemini…");
 
   const settings = await loadAgentSettings();
-  const prompt = settings.seo_instructions;
-
-  console.log("[analyzeSeoAndExtractMetadata] Instruções utilizadas:", settings.seo_instructions);
+  const prompt = settings.seo_instructions + `\n\nTexto:\n${articleText}\nPalavras-chave foco: ${focusKeywords}`;
 
   try {
-    const response = await gemini.models.generateContent({
-      model: settings.seo_model || "gemini-1.5-flash",
-      contents: [{ parts: [{ text: prompt }] }],
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            keywords: { type: Type.ARRAY, items: { type: Type.STRING } },
-            metaDescription: { type: Type.STRING },
-          },
-        },
-      },
-    });
+    const model = gemini.getGenerativeModel({ model: settings.seo_model || "gemini-1.5-flash" });
+    const result = await model.generateContent(prompt);
+    const rawText = result.response.text();
 
-    const result = JSON.parse(response.text);
-    console.log("✅ [analyzeSeoAndExtractMetadata] SEO extraído:", result);
+    // tenta extrair JSON de dentro do texto
+    const jsonStart = rawText.indexOf("{");
+    const jsonEnd = rawText.lastIndexOf("}") + 1;
+    const parsed =
+      jsonStart !== -1 && jsonEnd !== -1
+        ? JSON.parse(rawText.slice(jsonStart, jsonEnd))
+        : { keywords: [], metaDescription: "" };
+
+    console.log("✅ [analyzeSeoAndExtractMetadata] SEO extraído:", parsed);
     return {
-      keywords: result.keywords || [],
-      metaDescription: result.metaDescription || "",
+      keywords: parsed.keywords || [],
+      metaDescription: parsed.metaDescription || "",
     };
   } catch (error) {
     console.error("❌ [analyzeSeoAndExtractMetadata] Erro SEO:", error);
