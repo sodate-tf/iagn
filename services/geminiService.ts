@@ -96,7 +96,7 @@ ${articleText}
 
   try {
     const response = await gemini.models.generateContent({
-      model: settings.formatter_model || "gemini-1.5-flash",
+      model: settings.formatter_model || "gemini-1.0-pro",
       contents: [{ parts: [{ text: prompt }] }],
     });
 
