@@ -1,0 +1,14 @@
+{
+  "/_global-error/page": "/_global-error",
+  "/_not-found/page": "/_not-found",
+  "/api/calendar/today/route": "/api/calendar/today",
+  "/api/format-article/route": "/api/format-article",
+  "/api/generate-and-publish/route": "/api/generate-and-publish",
+  "/api/generate-article/route": "/api/generate-article",
+  "/api/seo-and-publish/route": "/api/seo-and-publish",
+  "/api/settings/route": "/api/settings",
+  "/dashboard/history/page": "/dashboard/history",
+  "/dashboard/page": "/dashboard",
+  "/dashboard/settings/page": "/dashboard/settings",
+  "/page": "/"
+}

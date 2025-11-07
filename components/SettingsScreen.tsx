@@ -102,8 +102,19 @@ const AgentConfigCard: React.FC<{
     </div>
   );
 };
+interface SettingsScreenProps {
+  currentLanguage?: string;
+  currentFocusKeywords?: string;
+  onSave?: (newSettings: { language: string; focusKeywords: string }) => void;
+}
 
-export const SettingsScreen: React.FC = () => {
+
+export const SettingsScreen: React.FC<SettingsScreenProps> = ({
+  currentLanguage,
+  currentFocusKeywords,
+  onSave,
+}) => {
+
   const [settings, setSettings] = useState<AiSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
