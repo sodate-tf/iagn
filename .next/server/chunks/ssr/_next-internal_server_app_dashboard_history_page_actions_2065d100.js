@@ -1,3 +1,0 @@
-module.exports=[86379,a=>{"use strict";var b=a.i(56004);a.s([],31433),a.i(31433),a.s(["00c81d5120b11ef4cc0254735022befc828f1f0dff",()=>b.getArticlesAction,"4033962586cb8514bc250b787135ed6a3c0b25db06",()=>b.getArticleById,"40963173b9cf273153ffde76bd697734172c7358b1",()=>b.saveArticleDraft,"600842a0514e5c17608bfc1f737be0f99c0619d324",()=>b.updateArticleHtml,"60e942519c672750afb8c38e5cdc6764872c1ff890",()=>b.updateArticleSeo,"70df8728f925551105c2dd950f3d1356e2c11c10d3",()=>b.generateAndSaveArticleAction],86379)}];
-
-//# sourceMappingURL=_next-internal_server_app_dashboard_history_page_actions_2065d100.js.map
