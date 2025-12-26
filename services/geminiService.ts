@@ -1,26 +1,34 @@
+import "server-only";
 import OpenAI from "openai";
 import { getSettings } from "@/services/configService";
 
 /* =============================================================
- * 🔑 Inicialização da API OpenAI
+ * 🔑 Inicialização Lazy da API OpenAI (build-safe)
  * ============================================================= */
-if (!process.env.OPENAI_API_KEY) {
-  console.error("❌ [OpenAIService] Variável de ambiente OPENAI_API_KEY não configurada!");
-}
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY as string });
+let openaiClient: OpenAI | null = null;
+
+function getOpenAI(): OpenAI {
+  if (openaiClient) return openaiClient;
+
+  const key = process.env.OPENAI_API_KEY;
+  if (!key || !key.trim()) {
+    // ✅ Não instancie OpenAI sem chave (evita quebrar build)
+    throw new Error(
+      "Missing credentials. Defina OPENAI_API_KEY nas Environment Variables do Vercel."
+    );
+  }
+
+  openaiClient = new OpenAI({ apiKey: key });
+  return openaiClient;
+}
 
 /* =============================================================
  * ⚙️  Cache de configurações do banco (TTL)
  * ============================================================= */
 type AgentSettings = {
-  // Prompt do agente "Santo do Dia"
   writer_instructions: string;
-
-  // Prompt do agente "Formatador HTML"
   formatter_instructions: string;
-
-  // Prompt do agente "SEO"
   seo_instructions: string;
 };
 
@@ -35,9 +43,15 @@ async function loadAgentSettings(): Promise<AgentSettings> {
   const settings = (await getSettings()) as AgentSettings | null;
   if (!settings) throw new Error("Configurações de IA não encontradas no banco.");
 
-  settingsCache = settings;
+  // Blindagem: garante string (evita undefined quebrar prompts)
+  settingsCache = {
+    writer_instructions: settings.writer_instructions ?? "",
+    formatter_instructions: settings.formatter_instructions ?? "",
+    seo_instructions: settings.seo_instructions ?? "",
+  };
+
   settingsCacheAt = now;
-  return settings;
+  return settingsCache;
 }
 
 /* =============================================================
@@ -90,6 +104,8 @@ export async function writeSaintArticle(args: {
   ].join("\n");
 
   try {
+    const openai = getOpenAI();
+
     const response = await openai.chat.completions.create({
       model: finalModel,
       messages: [
@@ -146,6 +162,8 @@ export async function writeThemeArticle(args: {
   ].join("\n");
 
   try {
+    const openai = getOpenAI();
+
     const response = await openai.chat.completions.create({
       model: finalModel,
       messages: [
@@ -167,7 +185,6 @@ export async function writeThemeArticle(args: {
 
 /* =============================================================
  * 🧠 Compatibilidade: writer antigo (mantém assinatura)
- * - Remova quando tudo estiver migrado para writeSaintArticle/writeThemeArticle
  * ============================================================= */
 export const writeNewsArticle = async (
   topic: string,
@@ -220,6 +237,8 @@ export const formatArticleToHtml = async (
     articleText;
 
   try {
+    const openai = getOpenAI();
+
     const response = await openai.chat.completions.create({
       model,
       messages: [{ role: "user", content: prompt }],
@@ -270,6 +289,8 @@ export const analyzeSeoAndExtractMetadata = async (
     `TEXTO:\n${articleText}`;
 
   try {
+    const openai = getOpenAI();
+
     const response = await openai.chat.completions.create({
       model,
       messages: [{ role: "user", content: userPrompt }],
