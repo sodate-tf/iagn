@@ -219,6 +219,7 @@ export async function analyzeSeoAndExtractMetadata(
     `Considere as palavras-chave foco: ${focusKeywords}\n\n` +
     `TEXTO:\n${articleText}`;
 
+    
   const response = await openai.chat.completions.create({
     model,
     messages: [{ role: "user", content: userPrompt }],
