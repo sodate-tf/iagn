@@ -36,9 +36,16 @@ async function loadAgentSettings(): Promise<AgentSettings> {
   const now = Date.now();
   if (settingsCache && now - settingsCacheAt < SETTINGS_TTL_MS) return settingsCache;
 
-  const settings = (await getSettings()) as AgentSettings | null;
+  let settings: { writer_instructions?: string | null; formatter_instructions?: string | null; seo_instructions?: string | null } | null = null;
 
-  // ✅ fallback para não quebrar em preview/build sem DB
+  try {
+    settings = await getSettings(); // AiSettings | null
+  } catch (err) {
+    // ✅ não derrubar build/runtime por falha do DB
+    console.warn("[loadAgentSettings] getSettings falhou; usando fallback.", err);
+    settings = null;
+  }
+
   settingsCache = {
     writer_instructions: settings?.writer_instructions ?? "",
     formatter_instructions: settings?.formatter_instructions ?? "",
@@ -48,6 +55,7 @@ async function loadAgentSettings(): Promise<AgentSettings> {
   settingsCacheAt = now;
   return settingsCache;
 }
+
 
 /* =========================
    Writers
@@ -219,7 +227,7 @@ export async function analyzeSeoAndExtractMetadata(
     `Considere as palavras-chave foco: ${focusKeywords}\n\n` +
     `TEXTO:\n${articleText}`;
 
-    
+
   const response = await openai.chat.completions.create({
     model,
     messages: [{ role: "user", content: userPrompt }],

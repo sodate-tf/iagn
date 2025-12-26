@@ -44,21 +44,25 @@ type AiSettingsRow = Omit<
 };
 
 /* =========================================================
-   🔌 Lazy init do client (NÃO quebrar build)
+   🔌 Lazy init do client (NÃO quebrar build/preview)
    ========================================================= */
 type NeonSql = ReturnType<typeof neon>;
 let sqlClient: NeonSql | null = null;
 
-function getSql(): NeonSql {
-  if (sqlClient) return sqlClient;
-
+function hasDbConfigured(): boolean {
   const url = process.env.POSTGRES_URL;
-  if (!url || !url.trim()) {
-    // ✅ Só falha quando usar DB, não no build
-    throw new Error("❌ Variável de ambiente POSTGRES_URL não definida.");
-  }
+  return !!url && !!url.trim();
+}
 
-  sqlClient = neon(url);
+/**
+ * Retorna client ou null se não houver POSTGRES_URL.
+ * Importante: NÃO lança erro aqui para não derrubar build/preview.
+ */
+function getSqlOrNull(): NeonSql | null {
+  if (sqlClient) return sqlClient;
+  if (!hasDbConfigured()) return null;
+
+  sqlClient = neon(process.env.POSTGRES_URL as string);
   return sqlClient;
 }
 
@@ -94,10 +98,12 @@ function ensureArray<T>(value: unknown): T[] {
    🔍 Buscar configurações atuais
    ========================================================= */
 export async function getSettings(): Promise<AiSettings | null> {
-  try {
-    const sql = getSql();
+  const sql = getSqlOrNull();
 
-    // ✅ Sem genérico no sql`` (compatível com typings do Neon)
+  // ✅ Sem DB em preview/build/dev local: apenas retorna null.
+  if (!sql) return null;
+
+  try {
     const raw = await sql`
       SELECT * FROM ai_settings
       ORDER BY created_at ASC
@@ -120,8 +126,12 @@ export async function getSettings(): Promise<AiSettings | null> {
       seo_files: normalizeJsonField(row.seo_files),
     };
   } catch (error) {
-    console.error("❌ Erro ao buscar configurações:", error);
-    throw new Error("Falha ao buscar configurações da IA.");
+    // ✅ Aqui é erro real COM DB configurado. Decida se quer derrubar runtime.
+    console.error("❌ Erro ao buscar configurações (DB configurado):", error);
+    // Para não derrubar rotas que possuem fallback, prefira retornar null:
+    return null;
+    // Se você quiser falhar hard em produção, troque por:
+    // throw new Error("Falha ao buscar configurações da IA.");
   }
 }
 
@@ -129,9 +139,12 @@ export async function getSettings(): Promise<AiSettings | null> {
    ✏️ Atualizar configurações
    ========================================================= */
 export async function updateSettings(data: Partial<AiSettings>): Promise<void> {
-  try {
-    const sql = getSql();
+  const sql = getSqlOrNull();
+  if (!sql) {
+    throw new Error("POSTGRES_URL não configurada. Não é possível atualizar configurações.");
+  }
 
+  try {
     const raw = await sql`SELECT id FROM ai_settings LIMIT 1;`;
     const rows = ensureArray<{ id: string }>(raw);
 
@@ -151,7 +164,7 @@ export async function updateSettings(data: Partial<AiSettings>): Promise<void> {
     if (keys.length === 0) return;
 
     const setClause = keys.map((key, i) => `${key} = $${i + 1}`).join(", ");
-    const values = keys.map(k => sanitizedData[k]);
+    const values = keys.map((k) => sanitizedData[k]);
 
     const query = `
       UPDATE ai_settings
