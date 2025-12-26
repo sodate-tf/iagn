@@ -1,6 +1,6 @@
 {
   "node": {
-    "70330047c1298307ff7fdef5110df01c092421e5b3": {
+    "70df8728f925551105c2dd950f3d1356e2c11c10d3": {
       "workers": {
         "app/dashboard/page": {
           "moduleId": 59276,
@@ -15,7 +15,7 @@
       "exportedName": "generateAndSaveArticleAction",
       "filename": "app/actions.ts"
     },
-    "00d002ddfe012e24faec6cada1f9d9a8ced2f790f6": {
+    "00c81d5120b11ef4cc0254735022befc828f1f0dff": {
       "workers": {
         "app/dashboard/page": {
           "moduleId": 59276,
