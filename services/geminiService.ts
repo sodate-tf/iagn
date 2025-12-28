@@ -360,7 +360,19 @@ export async function formatArticleToHtml(
     "Hoje, caminhemos juntos pela fé: uma leitura que ilumina, consola e nos aproxima de Deus na vida concreta.";
 
   return `
-<article class="post-santo max-w-3xl mx-auto p-4 sm lg bg-white font-sans text-gray-800 leading-relaxed min-h-screen" itemscope itemtype="https://schema.org/Article">
+<article
+  class="post-santo
+         mx-auto
+         w-full
+         max-w-screen-xl
+         px-2 sm:px-4 lg:px-10
+         py-4 lg:py-8
+         bg-white
+         font-sans text-gray-800 leading-relaxed
+         min-h-screen"
+  itemscope
+  itemtype="https://schema.org/Article"
+>
   <header class="mb-10 border-b border-indigo-200 pb-4">
     <h2 class="text-3xl sm font-extrabold text-indigo-700 mb-2 leading-tight" itemprop="headline">${safeTitle}</h2>
     <p class="introducao text-lg text-gray-600 italic" itemprop="description">${safeExcerpt}</p>
