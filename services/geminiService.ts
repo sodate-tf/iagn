@@ -1,3 +1,14 @@
+// formatter.ts (componente completo corrigido)
+// - Biblioteca de classes (Design System) centralizada
+// - Aplicação automática de classes por TAG no HTML do marked
+// - H2/H3/H4 em padrão editorial (H2 menor que H1, cinza escuro, margens)
+// - Blocos especiais (Liturgia / Terço) com margin-top/bottom = 20px
+// - TOC condicional (>= 4 H2)
+// - IDs sec-x nos H2
+// - SEO metadata sem IA (lê [SEO]...[/SEO])
+//
+// Observação: este arquivo mantém seus writers com IA (writeSaintArticle/writeThemeArticle).
+
 import "server-only";
 import OpenAI from "openai";
 import { getSettings } from "@/services/configService";
@@ -46,7 +57,7 @@ async function loadAgentSettings(): Promise<AgentSettings> {
     | null = null;
 
   try {
-    settings = await getSettings(); // AiSettings | null
+    settings = await getSettings();
   } catch (err) {
     console.warn("[loadAgentSettings] getSettings falhou; usando fallback.", err);
     settings = null;
@@ -67,8 +78,6 @@ async function loadAgentSettings(): Promise<AgentSettings> {
    ========================= */
 
 /** Extrai e remove um bloco [TAG]...[/TAG] (case-insensitive). */
-
-/** Extrai e remove um bloco [TAG]...[/TAG] (case-insensitive). */
 function extractBlock(text: string, tag: string): { value: string; cleaned: string } {
   const re = new RegExp(`\\[${tag}\\]([\\s\\S]*?)\\[\\/${tag}\\]`, "i");
   const match = text.match(re);
@@ -86,7 +95,6 @@ function extractSpecialBlocks(md: string): {
 } {
   let cleaned = md;
 
-  // Aceita [liturgia] e [LITURGIA], etc.
   const lit = extractBlock(cleaned, "liturgia");
   cleaned = lit.cleaned;
 
@@ -99,104 +107,6 @@ function extractSpecialBlocks(md: string): {
     terco: ter.value,
   };
 }
-
-/**
- * Remove o parágrafo usado como excerpt do markdown.
- * - remove o 1º parágrafo "real" após o H1 (ignorando linhas vazias)
- * - funciona mesmo que o parágrafo tenha múltiplas linhas
- */
-function stripExcerptParagraph(md: string): string {
-  const lines = md.split("\n");
-
-  // localiza H1
-  let i = 0;
-  for (; i < lines.length; i++) {
-    if (/^#\s+/.test(lines[i])) {
-      i++;
-      break;
-    }
-  }
-  if (i >= lines.length) return md.trim();
-
-  // pula linhas vazias logo após H1
-  while (i < lines.length && lines[i].trim() === "") i++;
-  if (i >= lines.length) return md.trim();
-
-  // remove até a primeira linha vazia após começar o parágrafo
-  let started = false;
-  const out: string[] = [];
-
-  for (let idx = 0; idx < lines.length; idx++) {
-    const line = lines[idx];
-
-    // só começa a remover depois do H1
-    if (idx < i) {
-      out.push(line);
-      continue;
-    }
-
-    if (!started) {
-      // primeira linha do parágrafo
-      if (line.trim() !== "") {
-        started = true;
-        continue; // remove esta linha
-      }
-      // se ainda for vazio, remove (não adiciona)
-      continue;
-    } else {
-      // já estamos removendo o parágrafo: quando encontrar vazio, encerra remoção
-      if (line.trim() === "") {
-        // mantém esta linha vazia (boa separação) e a partir daqui volta a copiar tudo
-        out.push(line);
-        // copia o restante integralmente
-        for (let j = idx + 1; j < lines.length; j++) out.push(lines[j]);
-        break;
-      }
-      // ainda dentro do parágrafo: remove
-      continue;
-    }
-  }
-
-  return out.join("\n").trim();
-}
-
-/** Renderiza um bloco especial (liturgia/terço) com visual consistente. */
-function renderSpecialBlock(params: {
-  title: string;
-  markdown: string;
-  variant: "liturgia" | "terco";
-}): string {
-  const { title, markdown, variant } = params;
-  if (!markdown?.trim()) return "";
-
-  // Você pode ajustar paleta/tipografia aqui
-  const palette =
-    variant === "liturgia"
-      ? {
-          wrap: "border-amber-200 bg-amber-50",
-          title: "text-amber-900",
-          prose: "prose-amber",
-        }
-      : {
-          wrap: "border-sky-200 bg-sky-50",
-          title: "text-sky-900",
-          prose: "prose-sky",
-        };
-
-  // Parse markdown interno
-  const html = String(marked.parse(markdown.trim()));
-
-  return `
-<section class="my-8 rounded-2xl border ${palette.wrap} p-5 sm:p-6 shadow-sm">
-  <h3 class="text-lg sm:text-xl font-extrabold ${palette.title} mb-3">${title}</h3>
-  <div class="prose max-w-none ${palette.prose}">
-    ${html}
-  </div>
-</section>
-  `.trim();
-}
-
-
 
 /** Extrai H1 (# ...) e o primeiro parágrafo após o H1 (excerpt). */
 function extractTitleAndExcerpt(md: string): { title: string; excerpt: string } {
@@ -213,11 +123,9 @@ function extractTitleAndExcerpt(md: string): { title: string; excerpt: string } 
     }
   }
 
-  // excerpt: primeiro parágrafo após H1
   const buff: string[] = [];
   for (; i < lines.length; i++) {
     const line = lines[i];
-
     if (/^#{1,6}\s+/.test(line)) break;
     if (line.trim() === "") {
       if (buff.length) break;
@@ -247,71 +155,9 @@ function buildToc(md: string): { toc: { id: string; title: string }[] } {
   return { toc };
 }
 
-function addOrAppendClass(attrs: string, classToAdd: string): string {
-  const hasClass = /\bclass\s*=\s*"/i.test(attrs);
-  if (!hasClass) {
-    return `${attrs} class="${classToAdd}"`;
-  }
-  return attrs.replace(/\bclass\s*=\s*"([^"]*)"/i, (_m, cls) => {
-    const next = `${cls} ${classToAdd}`.replace(/\s+/g, " ").trim();
-    return `class="${next}"`;
-  });
-}
-
-function ensureAttr(attrs: string, attrName: string, attrValue: string): string {
-  const re = new RegExp(`\\b${attrName}\\s*=\\s*"`, "i");
-  if (re.test(attrs)) return attrs;
-  return `${attrs} ${attrName}="${attrValue}"`;
-}
-
-/**
- * Aplica ids sec-x nos <h2> do HTML gerado pelo marked.
- * Também adiciona scroll offset via class "scroll-mt-28" (Tailwind) para header fixo.
- */
-function applySectionIdsToHtml(html: string, toc: { id: string; title: string }[]): string {
-  let idx = 0;
-
-  return html.replace(/<h2([^>]*)>([\s\S]*?)<\/h2>/gi, (_full, rawAttrs: string, inner: string) => {
-    idx++;
-    const id = toc[idx - 1]?.id ?? `sec-${idx}`;
-    let attrs = (rawAttrs || "").trim();
-
-    // garante id
-    attrs = ensureAttr(attrs, "id", id);
-
-    // garante classes mínimas (se já houver, apenas acrescenta scroll-mt-28)
-    const baseH2 = "text-2xl font-bold text-gray-900 mb-3";
-    attrs = addOrAppendClass(attrs, "scroll-mt-28");
-    attrs = addOrAppendClass(attrs, baseH2);
-
-    // normaliza espaços antes de fechar a tag
-    const attrsNormalized = attrs ? " " + attrs.replace(/\s+/g, " ").trim() : "";
-    return `<h2${attrsNormalized}>${inner}</h2>`;
-  });
-}
-
-/** Renderiza TOC condicional (quando houver muitos H2). */
-function renderToc(toc: { id: string; title: string }[], minH2 = 4): string {
-  if (toc.length < minH2) return "";
-
-  const items = toc
-    .map(
-      (t) =>
-        `<li class="mb-2"><a class="text-indigo-700 hover:underline" href="#${t.id}">${t.title}</a></li>`
-    )
-    .join("");
-
-  return `
-<nav class="my-6 p-4 rounded-xl border border-indigo-100 bg-indigo-50">
-  <p class="font-bold text-indigo-700 mb-3">Neste texto, você vai percorrer:</p>
-  <ul class="list-disc list-inside text-gray-800">
-    ${items}
-  </ul>
-</nav>
-  `.trim();
-}
-
-/** Safe JSON parse */
+/* =========================
+   Safe JSON parse / keywords
+   ========================= */
 function safeJsonParse<T>(s: string): T | null {
   try {
     return JSON.parse(s) as T;
@@ -414,9 +260,11 @@ export async function writeThemeArticle(args: {
   const max_completion_tokens = args.maxCompletionTokens ?? 2800;
   const temperature = args.temperature ?? 0.8;
 
-  const userPayload = [`TEMA: "${args.topic}"`, `IDIOMA: ${args.language}`, `PALAVRAS_CHAVE_FOCO: ${args.focusKeywords}`].join(
-    "\n"
-  );
+  const userPayload = [
+    `TEMA: "${args.topic}"`,
+    `IDIOMA: ${args.language}`,
+    `PALAVRAS_CHAVE_FOCO: ${args.focusKeywords}`,
+  ].join("\n");
 
   const response = await openai.chat.completions.create({
     model,
@@ -431,9 +279,7 @@ export async function writeThemeArticle(args: {
   return (response.choices[0]?.message?.content || "").trim();
 }
 
-/**
- * ✅ Mantém compatibilidade com rotas antigas (writer antigo)
- */
+/** ✅ Compatibilidade com rotas antigas */
 export async function writeNewsArticle(
   topic: string,
   language: string,
@@ -461,12 +307,11 @@ export async function writeNewsArticle(
 }
 
 /* =========================
-   Formatter (SEM IA) — SEO/Robusto (final)
+   Formatter (SEM IA)
    - ignora [SEO]
-   - extrai [liturgia] e [terco] (não duplica no corpo)
-   - extrai título (H1) + excerpt (1º parágrafo após H1)
+   - extrai [liturgia] e [terco]
+   - extrai título (H1) + excerpt
    - garante 1 único H1 NA PÁGINA
-   - remove QUALQUER "# " restante do corpo
    - evita duplicação do excerpt
    - TOC condicional baseado em H2
    - ids sec-1..n em H2
@@ -518,6 +363,271 @@ function stripExcerptFromBody(mdBodyAfterH1: string, excerpt: string) {
   return body.trim();
 }
 
+/* =========================
+   Design System (Tailwind)
+   ========================= */
+
+type DsVariant = "default" | "amber" | "sky";
+
+type DesignSystem = {
+  article: string;
+  header: {
+    wrap: string;
+    metaLine: string;
+    authorLine: string;
+    h1: string;
+    excerpt: string;
+  };
+  typography: {
+    h2: string;
+    h3: string;
+    h4: string;
+    p: string;
+    ul: string;
+    ol: string;
+    li: string;
+    a: string;
+    strong: string;
+    blockquote: string;
+    hr: string;
+    img: string;
+    codeInline: string;
+    pre: string;
+    tableWrap: string;
+    table: string;
+    thead: string;
+    th: string;
+    tbody: string;
+    td: string;
+  };
+  toc: {
+    wrap: string;
+    title: string;
+    list: string;
+    link: string;
+  };
+  special: Record<
+    DsVariant,
+    {
+      wrap: string;
+      title: string;
+    }
+  >;
+  longRead: {
+    articleBody: string;
+  };
+};
+
+const DS: DesignSystem = {
+  article:
+    "post-santo mx-auto w-full max-w-3xl px-3 sm:px-4 lg:max-w-5xl lg:px-6 py-6 bg-white font-sans text-gray-800 leading-relaxed min-h-screen",
+
+  header: {
+    wrap: "mb-10 border-b border-gray-200 pb-6",
+    metaLine: "text-sm text-gray-500",
+    authorLine: "mt-1 text-sm text-gray-500",
+    h1: "mt-2 text-3xl sm:text-4xl font-extrabold tracking-tight text-gray-900 leading-snug",
+    excerpt: "mt-3 text-lg text-gray-700 leading-[1.9]",
+  },
+
+  typography: {
+    // H2 menor que H1, cinza escuro, editorial, com respiro
+    h2: "mt-14 mb-6 pl-4 text-xl sm:text-2xl font-bold text-gray-800 border-l-4 border-amber-300 leading-snug scroll-mt-28",
+    // H3 editorial
+    h3: "mt-10 mb-4 text-lg sm:text-xl font-semibold text-gray-900 leading-snug scroll-mt-24",
+    h4: "mt-8 mb-3 text-base sm:text-lg font-semibold text-gray-900 leading-snug scroll-mt-24",
+
+    // Parágrafos para leitura longa
+    p: "my-5 text-[17px] leading-[1.95] text-gray-700",
+
+    ul: "my-5 pl-6 list-disc space-y-2 text-[17px] leading-[1.95] text-gray-700",
+    ol: "my-5 pl-6 list-decimal space-y-2 text-[17px] leading-[1.95] text-gray-700",
+    li: "text-[17px] leading-[1.95] text-gray-700",
+
+    a: "font-semibold text-amber-800 underline decoration-amber-300 hover:decoration-amber-600",
+    strong: "text-gray-900 font-semibold",
+
+    blockquote:
+      "my-7 rounded-xl border border-gray-200 bg-gray-50 px-5 py-4 text-gray-700 [&>p]:my-3",
+
+    hr: "my-10 border-gray-200",
+
+    img: "my-8 rounded-2xl shadow-sm border border-gray-200 max-w-full h-auto",
+
+    codeInline:
+      "px-1.5 py-0.5 rounded-md bg-gray-100 border border-gray-200 text-[0.95em] text-gray-900",
+
+    pre: "my-7 overflow-x-auto rounded-2xl border border-gray-200 bg-gray-950 p-5 text-gray-100 text-sm leading-relaxed",
+
+    tableWrap: "my-8 overflow-x-auto rounded-2xl border border-gray-200",
+    table: "w-full border-collapse text-left text-sm",
+    thead: "bg-gray-50",
+    th: "px-4 py-3 font-semibold text-gray-900 border-b border-gray-200 whitespace-nowrap",
+    tbody: "divide-y divide-gray-200",
+    td: "px-4 py-3 text-gray-700 align-top",
+  },
+
+  toc: {
+    wrap: "my-8 rounded-xl border border-amber-200 bg-amber-50/60 p-5 shadow-sm",
+    title: "text-sm font-semibold text-amber-900 tracking-wide",
+    list: "mt-4 grid gap-2 sm:grid-cols-2",
+    link:
+      "inline-flex w-full items-center justify-between rounded-lg border border-amber-100 bg-white/70 px-3 py-2 text-sm font-semibold text-amber-900 hover:bg-amber-100 transition",
+  },
+
+  special: {
+    default: { wrap: "border-gray-200 bg-white", title: "text-gray-900" },
+    amber: { wrap: "border-amber-200 bg-[#fffaf1]", title: "text-amber-900" },
+    sky: { wrap: "border-sky-200 bg-sky-50", title: "text-sky-900" },
+  },
+
+  longRead: {
+    // Não usamos "prose" para não brigar com o DS.
+    articleBody: "max-w-none",
+  },
+};
+
+/* =========================
+   Aplicadores de classes
+   ========================= */
+
+function normalizeAttrs(attrs: string): string {
+  const a = (attrs || "").trim().replace(/\s+/g, " ").trim();
+  return a ? " " + a : "";
+}
+
+function addOrAppendClass(attrs: string, classToAdd: string): string {
+  const hasClass = /\bclass\s*=\s*"/i.test(attrs);
+  if (!hasClass) return `${attrs} class="${classToAdd}"`;
+  return attrs.replace(/\bclass\s*=\s*"([^"]*)"/i, (_m, cls) => {
+    const next = `${cls} ${classToAdd}`.replace(/\s+/g, " ").trim();
+    return `class="${next}"`;
+  });
+}
+
+function ensureAttr(attrs: string, attrName: string, attrValue: string): string {
+  const re = new RegExp(`\\b${attrName}\\s*=\\s*"`, "i");
+  if (re.test(attrs)) return attrs;
+  return `${attrs} ${attrName}="${attrValue}"`;
+}
+
+/**
+ * Aplica ids sec-x nos <h2> do HTML e garante classes do DS.
+ */
+function applySectionIdsToHtml(html: string, toc: { id: string; title: string }[]): string {
+  let idx = 0;
+
+  return html.replace(/<h2([^>]*)>([\s\S]*?)<\/h2>/gi, (_full, rawAttrs: string, inner: string) => {
+    idx++;
+    const id = toc[idx - 1]?.id ?? `sec-${idx}`;
+    let attrs = (rawAttrs || "").trim();
+
+    attrs = ensureAttr(attrs, "id", id);
+    attrs = addOrAppendClass(attrs, DS.typography.h2);
+
+    return `<h2${normalizeAttrs(attrs)}>${inner}</h2>`;
+  });
+}
+
+/**
+ * Aplica classes por TAG em todo o HTML gerado.
+ * Observação: para <code>, aplicamos estilo inline; se quiser diferenciar <pre><code>,
+ * posso ajustar para não aplicar em code dentro de pre.
+ */
+function applyTagClasses(html: string): string {
+  let out = html;
+
+  // H3/H4
+  out = out.replace(/<h3([^>]*)>/gi, (_m, attrs) => `<h3${normalizeAttrs(addOrAppendClass(attrs, DS.typography.h3))}>`);
+  out = out.replace(/<h4([^>]*)>/gi, (_m, attrs) => `<h4${normalizeAttrs(addOrAppendClass(attrs, DS.typography.h4))}>`);
+
+  // P
+  out = out.replace(/<p([^>]*)>/gi, (_m, attrs) => `<p${normalizeAttrs(addOrAppendClass(attrs, DS.typography.p))}>`);
+
+  // Lists
+  out = out.replace(/<ul([^>]*)>/gi, (_m, attrs) => `<ul${normalizeAttrs(addOrAppendClass(attrs, DS.typography.ul))}>`);
+  out = out.replace(/<ol([^>]*)>/gi, (_m, attrs) => `<ol${normalizeAttrs(addOrAppendClass(attrs, DS.typography.ol))}>`);
+  out = out.replace(/<li([^>]*)>/gi, (_m, attrs) => `<li${normalizeAttrs(addOrAppendClass(attrs, DS.typography.li))}>`);
+
+  // Links / strong
+  out = out.replace(/<a([^>]*)>/gi, (_m, attrs) => `<a${normalizeAttrs(addOrAppendClass(attrs, DS.typography.a))}>`);
+  out = out.replace(/<strong([^>]*)>/gi, (_m, attrs) => `<strong${normalizeAttrs(addOrAppendClass(attrs, DS.typography.strong))}>`);
+
+  // Blockquote / hr / img
+  out = out.replace(
+    /<blockquote([^>]*)>/gi,
+    (_m, attrs) => `<blockquote${normalizeAttrs(addOrAppendClass(attrs, DS.typography.blockquote))}>`
+  );
+  out = out.replace(/<hr([^>]*)\/?>/gi, (_m, attrs) => `<hr${normalizeAttrs(addOrAppendClass(attrs, DS.typography.hr))} />`);
+  out = out.replace(/<img([^>]*)\/?>/gi, (_m, attrs) => `<img${normalizeAttrs(addOrAppendClass(attrs, DS.typography.img))} />`);
+
+  // code/pre
+  out = out.replace(/<code([^>]*)>/gi, (_m, attrs) => `<code${normalizeAttrs(addOrAppendClass(attrs, DS.typography.codeInline))}>`);
+  out = out.replace(/<pre([^>]*)>/gi, (_m, attrs) => `<pre${normalizeAttrs(addOrAppendClass(attrs, DS.typography.pre))}>`);
+
+  // tables (wrap automático)
+  out = out.replace(/<table([^>]*)>/gi, (_m, attrs) => {
+    const tableOpen = `<table${normalizeAttrs(addOrAppendClass(attrs, DS.typography.table))}>`;
+    return `<div class="${DS.typography.tableWrap}">${tableOpen}`;
+  });
+  out = out.replace(/<\/table>/gi, "</table></div>");
+  out = out.replace(/<thead([^>]*)>/gi, (_m, attrs) => `<thead${normalizeAttrs(addOrAppendClass(attrs, DS.typography.thead))}>`);
+  out = out.replace(/<th([^>]*)>/gi, (_m, attrs) => `<th${normalizeAttrs(addOrAppendClass(attrs, DS.typography.th))}>`);
+  out = out.replace(/<tbody([^>]*)>/gi, (_m, attrs) => `<tbody${normalizeAttrs(addOrAppendClass(attrs, DS.typography.tbody))}>`);
+  out = out.replace(/<td([^>]*)>/gi, (_m, attrs) => `<td${normalizeAttrs(addOrAppendClass(attrs, DS.typography.td))}>`);
+
+  return out;
+}
+
+/* =========================
+   TOC
+   ========================= */
+function renderToc(toc: { id: string; title: string }[], minH2 = 4): string {
+  if (toc.length < minH2) return "";
+
+  const items = toc
+    .map(
+      (t) => `
+<li>
+  <a class="${DS.toc.link}" href="#${t.id}">
+    <span>${escapeHtml(t.title)}</span><span aria-hidden="true">→</span>
+  </a>
+</li>`.trim()
+    )
+    .join("");
+
+  return `
+<nav class="${DS.toc.wrap}">
+  <h4 class="${DS.toc.title}">Neste artigo</h4>
+  <ul class="${DS.toc.list}">
+    ${items}
+  </ul>
+</nav>
+  `.trim();
+}
+
+/* =========================
+   Blocos especiais (Liturgia/Terço)
+   ========================= */
+function renderSpecialBlock(params: { title: string; markdown: string; variant: DsVariant }): string {
+  const { title, markdown, variant } = params;
+  if (!markdown?.trim()) return "";
+
+  const pal = DS.special[variant] ?? DS.special.default;
+
+  const innerHtmlRaw = String(marked.parse(markdown.trim()));
+  const innerHtml = applyTagClasses(innerHtmlRaw);
+
+  return `
+<section class="rounded-xl border ${pal.wrap} p-5 sm:p-6 shadow-sm" style="margin-top:20px;margin-bottom:20px;">
+  <h3 class="${DS.typography.h3} ${pal.title} !mt-0">${escapeHtml(title)}</h3>
+  <div class="${DS.longRead.articleBody}">
+    ${innerHtml}
+  </div>
+</section>
+  `.trim();
+}
+
 function renderSpecialBlocksGrid(liturgiaHtml: string, tercoHtml: string) {
   return `
 <section class="mt-10" aria-label="Liturgia e Terço">
@@ -529,9 +639,10 @@ function renderSpecialBlocksGrid(liturgiaHtml: string, tercoHtml: string) {
   `.trim();
 }
 
-export async function formatArticleToHtml(
-  articleText: string
-): Promise<string> {
+/* =========================
+   Formatter principal
+   ========================= */
+export async function formatArticleToHtml(articleText: string): Promise<string> {
   const input = normalizeNewlines(articleText || "").trim();
 
   // DATA ATUAL DO SISTEMA (SEO)
@@ -559,53 +670,47 @@ export async function formatArticleToHtml(
   // 6) Markdown → HTML
   marked.setOptions({ gfm: true, breaks: false });
   const rawBodyHtml = String(marked.parse(mdBody));
-  const bodyHtml = applySectionIdsToHtml(rawBodyHtml, toc);
 
-  // 7) Header seguro
+  // 7) ids + classes DS
+  const withIds = applySectionIdsToHtml(rawBodyHtml, toc);
+  const bodyHtml = applyTagClasses(withIds);
+
+  // 8) Header seguro
   const safeTitle = escapeHtml(title || "Tio Ben");
   const safeExcerpt = escapeHtml(
     excerpt ||
       "Hoje, caminhemos juntos pela fé: uma leitura que ilumina, consola e nos aproxima de Deus na vida concreta."
   );
 
+  // 9) Especiais
   const liturgiaHtml = renderSpecialBlock({
     title: "Liturgia do dia",
     markdown: (liturgia || "").trim(),
-    variant: "liturgia",
+    variant: "amber",
   });
 
   const tercoHtml = renderSpecialBlock({
     title: "Terço do dia",
     markdown: (terco || "").trim(),
-    variant: "terco",
+    variant: "sky",
   });
 
   const specialsGridHtml = renderSpecialBlocksGrid(liturgiaHtml, tercoHtml);
 
   return `
-<article
-  class="post-santo mx-auto w-full max-w-screen-xl px-2 sm:px-4 lg:px-10 py-4 lg:py-8 bg-white font-sans text-gray-800 leading-relaxed min-h-screen"
-  itemscope
-  itemtype="https://schema.org/Article"
->
-  <header class="mb-10 border-b border-indigo-200 pb-4">
-    <p class="text-sm text-gray-500 mb-1">
-      <time datetime="${publishedISO}" itemprop="datePublished">
-        ${publishedISO}
-      </time>
+<article class="${DS.article}" itemscope itemtype="https://schema.org/Article">
+  <header class="${DS.header.wrap}">
+    <p class="${DS.header.metaLine}">
+      <time datetime="${publishedISO}" itemprop="datePublished">${publishedISO}</time>
     </p>
 
-    <p class="text-sm text-gray-500 mb-2" itemprop="author" itemscope itemtype="https://schema.org/Person">
+    <p class="${DS.header.authorLine}" itemprop="author" itemscope itemtype="https://schema.org/Person">
       <span itemprop="name">Tio Ben</span>
     </p>
 
-    <h1 class="text-3xl sm:text-4xl font-extrabold text-indigo-700 mb-2 leading-tight" itemprop="headline">
-      ${safeTitle}
-    </h1>
+    <h1 class="${DS.header.h1}" itemprop="headline">${safeTitle}</h1>
 
-    <p class="introducao text-lg text-gray-600 italic" itemprop="description">
-      ${safeExcerpt}
-    </p>
+    <p class="${DS.header.excerpt}" itemprop="description">${safeExcerpt}</p>
   </header>
 
   ${tocHtml}
@@ -620,7 +725,7 @@ export async function formatArticleToHtml(
     </ins>
   </div>
 
-  <div itemprop="articleBody" class="prose max-w-none">
+  <div itemprop="articleBody" class="${DS.longRead.articleBody}">
     ${bodyHtml}
   </div>
 
@@ -628,7 +733,6 @@ export async function formatArticleToHtml(
 </article>
   `.trim();
 }
-
 
 /* =========================
    SEO metadata (SEM IA)
@@ -638,7 +742,7 @@ export async function formatArticleToHtml(
 export async function analyzeSeoAndExtractMetadata(
   articleText: string,
   focusKeywords: string,
-  _opts?: { model?: string; maxCompletionTokens?: number; temperature?: number } // compat
+  _opts?: { model?: string; maxCompletionTokens?: number; temperature?: number }
 ): Promise<{ keywords: string[]; metaDescription: string }> {
   const { value: seoBlock, cleaned: mdNoSeoBlock } = extractBlock(articleText, "SEO");
 
