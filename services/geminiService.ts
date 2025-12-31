@@ -67,6 +67,8 @@ async function loadAgentSettings(): Promise<AgentSettings> {
    ========================= */
 
 /** Extrai e remove um bloco [TAG]...[/TAG] (case-insensitive). */
+
+/** Extrai e remove um bloco [TAG]...[/TAG] (case-insensitive). */
 function extractBlock(text: string, tag: string): { value: string; cleaned: string } {
   const re = new RegExp(`\\[${tag}\\]([\\s\\S]*?)\\[\\/${tag}\\]`, "i");
   const match = text.match(re);
@@ -76,22 +78,125 @@ function extractBlock(text: string, tag: string): { value: string; cleaned: stri
   return { value, cleaned };
 }
 
-/** Remove o primeiro H1 (# ...) do markdown (para evitar duplicar título no body). */
-function stripFirstH1(md: string): string {
+/** Extrai múltiplos blocos especiais do markdown e remove do corpo principal. */
+function extractSpecialBlocks(md: string): {
+  mdClean: string;
+  liturgia: string;
+  terco: string;
+} {
+  let cleaned = md;
+
+  // Aceita [liturgia] e [LITURGIA], etc.
+  const lit = extractBlock(cleaned, "liturgia");
+  cleaned = lit.cleaned;
+
+  const ter = extractBlock(cleaned, "terco");
+  cleaned = ter.cleaned;
+
+  return {
+    mdClean: cleaned.trim(),
+    liturgia: lit.value,
+    terco: ter.value,
+  };
+}
+
+/**
+ * Remove o parágrafo usado como excerpt do markdown.
+ * - remove o 1º parágrafo "real" após o H1 (ignorando linhas vazias)
+ * - funciona mesmo que o parágrafo tenha múltiplas linhas
+ */
+function stripExcerptParagraph(md: string): string {
   const lines = md.split("\n");
-  let removed = false;
+
+  // localiza H1
+  let i = 0;
+  for (; i < lines.length; i++) {
+    if (/^#\s+/.test(lines[i])) {
+      i++;
+      break;
+    }
+  }
+  if (i >= lines.length) return md.trim();
+
+  // pula linhas vazias logo após H1
+  while (i < lines.length && lines[i].trim() === "") i++;
+  if (i >= lines.length) return md.trim();
+
+  // remove até a primeira linha vazia após começar o parágrafo
+  let started = false;
   const out: string[] = [];
 
-  for (const line of lines) {
-    if (!removed && /^#\s+/.test(line)) {
-      removed = true;
+  for (let idx = 0; idx < lines.length; idx++) {
+    const line = lines[idx];
+
+    // só começa a remover depois do H1
+    if (idx < i) {
+      out.push(line);
       continue;
     }
-    out.push(line);
+
+    if (!started) {
+      // primeira linha do parágrafo
+      if (line.trim() !== "") {
+        started = true;
+        continue; // remove esta linha
+      }
+      // se ainda for vazio, remove (não adiciona)
+      continue;
+    } else {
+      // já estamos removendo o parágrafo: quando encontrar vazio, encerra remoção
+      if (line.trim() === "") {
+        // mantém esta linha vazia (boa separação) e a partir daqui volta a copiar tudo
+        out.push(line);
+        // copia o restante integralmente
+        for (let j = idx + 1; j < lines.length; j++) out.push(lines[j]);
+        break;
+      }
+      // ainda dentro do parágrafo: remove
+      continue;
+    }
   }
 
   return out.join("\n").trim();
 }
+
+/** Renderiza um bloco especial (liturgia/terço) com visual consistente. */
+function renderSpecialBlock(params: {
+  title: string;
+  markdown: string;
+  variant: "liturgia" | "terco";
+}): string {
+  const { title, markdown, variant } = params;
+  if (!markdown?.trim()) return "";
+
+  // Você pode ajustar paleta/tipografia aqui
+  const palette =
+    variant === "liturgia"
+      ? {
+          wrap: "border-amber-200 bg-amber-50",
+          title: "text-amber-900",
+          prose: "prose-amber",
+        }
+      : {
+          wrap: "border-sky-200 bg-sky-50",
+          title: "text-sky-900",
+          prose: "prose-sky",
+        };
+
+  // Parse markdown interno
+  const html = String(marked.parse(markdown.trim()));
+
+  return `
+<section class="my-8 rounded-2xl border ${palette.wrap} p-5 sm:p-6 shadow-sm">
+  <h3 class="text-lg sm:text-xl font-extrabold ${palette.title} mb-3">${title}</h3>
+  <div class="prose max-w-none ${palette.prose}">
+    ${html}
+  </div>
+</section>
+  `.trim();
+}
+
+
 
 /** Extrai H1 (# ...) e o primeiro parágrafo após o H1 (excerpt). */
 function extractTitleAndExcerpt(md: string): { title: string; excerpt: string } {
@@ -356,78 +461,174 @@ export async function writeNewsArticle(
 }
 
 /* =========================
-   Formatter (SEM IA)
+   Formatter (SEM IA) — SEO/Robusto (final)
    - ignora [SEO]
-   - gera excerpt inteligente (1º parágrafo após H1)
-   - remove H1 do corpo (evita duplicação)
-   - gera ids sec-1..n em H2
-   - cria TOC condicional
+   - extrai [liturgia] e [terco] (não duplica no corpo)
+   - extrai título (H1) + excerpt (1º parágrafo após H1)
+   - garante 1 único H1 NA PÁGINA
+   - remove QUALQUER "# " restante do corpo
+   - evita duplicação do excerpt
+   - TOC condicional baseado em H2
+   - ids sec-1..n em H2
+   - Liturgia + Terço em GRID
+   - datePublished = data atual do sistema
    ========================= */
+
+function escapeHtml(s: string) {
+  return (s || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function normalizeNewlines(s: string) {
+  return (s || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+}
+
+function stripFirstH1(md: string) {
+  const src = normalizeNewlines(md);
+  const lines = src.split("\n");
+  const idx = lines.findIndex((l) => /^#\s+/.test(l));
+  if (idx === -1) return src.trim();
+  lines.splice(idx, 1);
+  return lines.join("\n").trim();
+}
+
+function stripAllH1(md: string) {
+  return normalizeNewlines(md)
+    .replace(/^#\s+.*$/gm, "")
+    .trim();
+}
+
+function stripExcerptFromBody(mdBodyAfterH1: string, excerpt: string) {
+  const body = normalizeNewlines(mdBodyAfterH1).trimStart();
+  const ex = normalizeNewlines(excerpt || "").trim();
+  if (!ex) return body.trim();
+
+  if (body.startsWith(ex)) {
+    return body.slice(ex.length).trimStart().replace(/^\n+/, "").trim();
+  }
+
+  const firstParaMatch = body.match(/^([\s\S]*?)(\n{2,}|$)/);
+  const firstPara = (firstParaMatch?.[1] || "").trim();
+  if (firstPara && firstPara === ex) {
+    return body.slice((firstParaMatch?.[0] || "").length).trimStart().trim();
+  }
+
+  return body.trim();
+}
+
+function renderSpecialBlocksGrid(liturgiaHtml: string, tercoHtml: string) {
+  return `
+<section class="mt-10" aria-label="Liturgia e Terço">
+  <div class="grid gap-4 md:grid-cols-2">
+    ${liturgiaHtml}
+    ${tercoHtml}
+  </div>
+</section>
+  `.trim();
+}
+
 export async function formatArticleToHtml(
-  articleText: string,
-  _opts?: { model?: string; maxCompletionTokens?: number; temperature?: number } // compat
+  articleText: string
 ): Promise<string> {
+  const input = normalizeNewlines(articleText || "").trim();
+
+  // DATA ATUAL DO SISTEMA (SEO)
+  const publishedDate = new Date();
+  const publishedISO = publishedDate.toISOString().split("T")[0];
+
   // 1) remove bloco [SEO]
-  const { cleaned: mdNoSeo } = extractBlock(articleText, "SEO");
+  const { cleaned: mdNoSeo } = extractBlock(input, "SEO");
 
-  // 2) extrai título + excerpt
-  const { title, excerpt } = extractTitleAndExcerpt(mdNoSeo);
+  // 2) extrai liturgia e terço
+  const { mdClean, liturgia, terco } = extractSpecialBlocks(mdNoSeo);
 
-  // 3) remove H1 do corpo (vamos usar o header do article)
-  const mdBody = stripFirstH1(mdNoSeo);
+  // 3) título + excerpt
+  const { title, excerpt } = extractTitleAndExcerpt(mdClean);
 
-  // 4) TOC baseado em H2
+  // 4) corpo limpo
+  const mdAfterFirstH1 = stripFirstH1(mdClean);
+  const mdNoExcerpt = stripExcerptFromBody(mdAfterFirstH1, excerpt);
+  const mdBody = stripAllH1(mdNoExcerpt);
+
+  // 5) TOC
   const { toc } = buildToc(mdBody);
   const tocHtml = renderToc(toc, 4);
 
-  // 5) Markdown -> HTML
+  // 6) Markdown → HTML
   marked.setOptions({ gfm: true, breaks: false });
-
   const rawBodyHtml = String(marked.parse(mdBody));
-
-  // 6) aplica ids sec-x nos h2 + scroll offset
   const bodyHtml = applySectionIdsToHtml(rawBodyHtml, toc);
 
-  // 7) header do article
-  const safeTitle = (title || "Santo do Dia").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  const safeExcerpt = (
+  // 7) Header seguro
+  const safeTitle = escapeHtml(title || "Tio Ben");
+  const safeExcerpt = escapeHtml(
     excerpt ||
-    "Hoje, caminhemos juntos pela fé: uma leitura que ilumina, consola e nos aproxima de Deus na vida concreta."
-  )
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+      "Hoje, caminhemos juntos pela fé: uma leitura que ilumina, consola e nos aproxima de Deus na vida concreta."
+  );
+
+  const liturgiaHtml = renderSpecialBlock({
+    title: "Liturgia do dia",
+    markdown: (liturgia || "").trim(),
+    variant: "liturgia",
+  });
+
+  const tercoHtml = renderSpecialBlock({
+    title: "Terço do dia",
+    markdown: (terco || "").trim(),
+    variant: "terco",
+  });
+
+  const specialsGridHtml = renderSpecialBlocksGrid(liturgiaHtml, tercoHtml);
 
   return `
 <article
-  class="post-santo
-         mx-auto
-         w-full
-         max-w-screen-xl
-         px-2 sm:px-4 lg:px-10
-         py-4 lg:py-8
-         bg-white
-         font-sans text-gray-800 leading-relaxed
-         min-h-screen"
+  class="post-santo mx-auto w-full max-w-screen-xl px-2 sm:px-4 lg:px-10 py-4 lg:py-8 bg-white font-sans text-gray-800 leading-relaxed min-h-screen"
   itemscope
   itemtype="https://schema.org/Article"
 >
   <header class="mb-10 border-b border-indigo-200 pb-4">
-    <h2 class="text-3xl sm:text-4xl font-extrabold text-indigo-700 mb-2 leading-tight" itemprop="headline">${safeTitle}</h2>
-    <p class="introducao text-lg text-gray-600 italic" itemprop="description">${safeExcerpt}</p>
+    <p class="text-sm text-gray-500 mb-1">
+      <time datetime="${publishedISO}" itemprop="datePublished">
+        ${publishedISO}
+      </time>
+    </p>
+
+    <p class="text-sm text-gray-500 mb-2" itemprop="author" itemscope itemtype="https://schema.org/Person">
+      <span itemprop="name">Tio Ben</span>
+    </p>
+
+    <h1 class="text-3xl sm:text-4xl font-extrabold text-indigo-700 mb-2 leading-tight" itemprop="headline">
+      ${safeTitle}
+    </h1>
+
+    <p class="introducao text-lg text-gray-600 italic" itemprop="description">
+      ${safeExcerpt}
+    </p>
   </header>
 
   ${tocHtml}
 
   <div class="my-8 flex justify-center">
-    <ins class="adsbygoogle" style="display:block;" data-ad-client="ca-pub-8819996017476509" data-ad-slot="3041346283" data-ad-format="fluid" data-full-width-responsive="true"></ins>
+    <ins class="adsbygoogle"
+      style="display:block;"
+      data-ad-client="ca-pub-8819996017476509"
+      data-ad-slot="3041346283"
+      data-ad-format="fluid"
+      data-full-width-responsive="true">
+    </ins>
   </div>
 
   <div itemprop="articleBody" class="prose max-w-none">
     ${bodyHtml}
   </div>
+
+  ${specialsGridHtml}
 </article>
   `.trim();
 }
+
 
 /* =========================
    SEO metadata (SEM IA)
