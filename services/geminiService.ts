@@ -1,11 +1,14 @@
-// formatter.ts (componente completo corrigido)
-// - Biblioteca de classes (Design System) centralizada
-// - Aplicação automática de classes por TAG no HTML do marked
-// - H2/H3/H4 em padrão editorial (H2 menor que H1, cinza escuro, margens)
-// - Blocos especiais (Liturgia / Terço) com margin-top/bottom = 20px
+// formatter.ts (arquivo completo corrigido)
+// - Design System centralizado
+// - Aplica classes por TAG no HTML do marked
+// - H2/H3/H4 editorial
+// - Blocos especiais (Liturgia / Terço) com espaçamento mobile-safe
 // - TOC condicional (>= 4 H2)
 // - IDs sec-x nos H2
-// - SEO metadata sem IA (lê [SEO]...[/SEO])
+// - [SEO] removido do HTML (remove TODOS), usado só para meta tags
+// - Correções mobile: quebra de URL longa, overflow-x-hidden, toc mais resiliente
+// - Pós-processamento: converte URL crua em link com âncora amigável
+// - Textos variáveis (15 opções) para link e (opcional) título do card
 //
 // Observação: este arquivo mantém seus writers com IA (writeSaintArticle/writeThemeArticle).
 
@@ -77,7 +80,7 @@ async function loadAgentSettings(): Promise<AgentSettings> {
    Helpers (blocks + markdown)
    ========================= */
 
-/** Extrai e remove um bloco [TAG]...[/TAG] (case-insensitive). */
+/** Extrai e remove um bloco [TAG]...[/TAG] (case-insensitive). Remove apenas o primeiro. */
 function extractBlock(text: string, tag: string): { value: string; cleaned: string } {
   const re = new RegExp(`\\[${tag}\\]([\\s\\S]*?)\\[\\/${tag}\\]`, "i");
   const match = text.match(re);
@@ -85,6 +88,21 @@ function extractBlock(text: string, tag: string): { value: string; cleaned: stri
   const value = (match[1] ?? "").trim();
   const cleaned = text.replace(match[0], "").trim();
   return { value, cleaned };
+}
+
+/** Remove TODOS os blocos [TAG]...[/TAG] (case-insensitive) e retorna o primeiro value (se existir). */
+function extractAllBlocks(text: string, tag: string): { firstValue: string; cleaned: string } {
+  const re = new RegExp(`\\[${tag}\\]([\\s\\S]*?)\\[\\/${tag}\\]`, "gi");
+  let firstValue = "";
+  let cleaned = text;
+
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    if (!firstValue) firstValue = (m[1] ?? "").trim();
+  }
+
+  cleaned = cleaned.replace(re, "").trim();
+  return { firstValue, cleaned };
 }
 
 /** Extrai múltiplos blocos especiais do markdown e remove do corpo principal. */
@@ -95,16 +113,16 @@ function extractSpecialBlocks(md: string): {
 } {
   let cleaned = md;
 
-  const lit = extractBlock(cleaned, "liturgia");
+  const lit = extractAllBlocks(cleaned, "liturgia");
   cleaned = lit.cleaned;
 
-  const ter = extractBlock(cleaned, "terco");
+  const ter = extractAllBlocks(cleaned, "terco");
   cleaned = ter.cleaned;
 
   return {
     mdClean: cleaned.trim(),
-    liturgia: lit.value,
-    terco: ter.value,
+    liturgia: lit.firstValue,
+    terco: ter.firstValue,
   };
 }
 
@@ -192,6 +210,106 @@ function clampMeta(s: string, max = 160): string {
   const lastSpace = cut.lastIndexOf(" ");
   return (lastSpace > 80 ? cut.slice(0, lastSpace) : cut).trim();
 }
+
+/* =========================
+   Random text variants (15 cada)
+   ========================= */
+
+function pickRandom<T>(arr: T[], fallback: T): T {
+  if (!arr?.length) return fallback;
+  const idx = Math.floor(Math.random() * arr.length);
+  return arr[idx] ?? fallback;
+}
+
+const LITURGIA_LINK_TEXTS = [
+  "Ver a liturgia de hoje",
+  "Ler a liturgia do dia",
+  "Acompanhar a liturgia de hoje",
+  "Ir para a Liturgia Diária",
+  "Abrir a liturgia do dia",
+  "Conferir a liturgia de hoje",
+  "Ler as leituras de hoje",
+  "Ver leituras e salmos de hoje",
+  "Liturgia de hoje: abrir agora",
+  "Ler a Palavra de hoje",
+  "Consultar a liturgia do dia",
+  "Veja a liturgia de hoje",
+  "Acesse a liturgia diária",
+  "Ver a liturgia e as leituras",
+  "Liturgia do dia: ver agora",
+];
+
+const TERCO_LINK_TEXTS = [
+  "Rezar o terço do dia",
+  "Rezar o santo terço hoje",
+  "Ir para o terço de hoje",
+  "Meditar os mistérios no terço",
+  "Reze o terço agora",
+  "Acompanhar o terço do dia",
+  "Terço de hoje: começar",
+  "Iniciar o terço do dia",
+  "Rezando juntos: terço",
+  "Rezar o terço com calma",
+  "Terço do dia: rezar agora",
+  "Acessar o Santo Terço",
+  "Rezar e meditar no terço",
+  "Abrir o terço do dia",
+  "Rezar o terço hoje",
+];
+
+const GENERIC_LINK_TEXTS = [
+  "Abrir link",
+  "Acessar agora",
+  "Ver mais",
+  "Ir para a página",
+  "Continuar",
+  "Saiba mais",
+  "Abrir conteúdo",
+  "Ver detalhes",
+  "Ler agora",
+  "Acessar conteúdo",
+  "Abrir página",
+  "Conferir",
+  "Veja aqui",
+  "Clique para abrir",
+  "Ir agora",
+];
+
+const LITURGIA_CARD_TITLES = [
+  "Liturgia do dia",
+  "Liturgia de hoje",
+  "Leituras da missa de hoje",
+  "A Palavra de hoje",
+  "Liturgia diária (hoje)",
+  "Liturgia: hoje",
+  "Leituras e salmos de hoje",
+  "Liturgia e leituras",
+  "Liturgia para hoje",
+  "Liturgia do dia (missa)",
+  "Liturgia: leituras do dia",
+  "Liturgia do dia e reflexões",
+  "Liturgia de hoje (rápido)",
+  "Liturgia diária",
+  "Liturgia de hoje (missa)",
+];
+
+const TERCO_CARD_TITLES = [
+  "Terço do dia",
+  "Terço de hoje",
+  "Santo terço: hoje",
+  "Reze o terço hoje",
+  "Terço para hoje",
+  "Terço e mistérios",
+  "Momento do terço",
+  "Terço: meditação de hoje",
+  "Terço do dia (mistérios)",
+  "Terço de hoje (começar)",
+  "Terço: rezar agora",
+  "Terço diário",
+  "Terço de hoje (guiado)",
+  "Santo terço",
+  "Terço do dia (orar)",
+];
 
 /* =========================
    Writers (IA permanece aqui)
@@ -308,15 +426,6 @@ export async function writeNewsArticle(
 
 /* =========================
    Formatter (SEM IA)
-   - ignora [SEO]
-   - extrai [liturgia] e [terco]
-   - extrai título (H1) + excerpt
-   - garante 1 único H1 NA PÁGINA
-   - evita duplicação do excerpt
-   - TOC condicional baseado em H2
-   - ids sec-1..n em H2
-   - Liturgia + Terço em GRID
-   - datePublished = data atual do sistema
    ========================= */
 
 function escapeHtml(s: string) {
@@ -420,42 +529,37 @@ type DesignSystem = {
 
 const DS: DesignSystem = {
   article:
-    "post-santo mx-auto w-full max-w-3xl px-3 sm:px-4 lg:max-w-5xl lg:px-6 py-6 bg-white font-sans text-gray-800 leading-relaxed min-h-screen",
+    "post-santo mx-auto w-full max-w-3xl px-3 sm:px-4 lg:max-w-5xl lg:px-6 py-6 bg-white font-sans text-gray-800 leading-relaxed min-h-screen overflow-x-hidden",
 
   header: {
     wrap: "mb-10 border-b border-gray-200 pb-6",
     metaLine: "text-sm text-gray-500",
     authorLine: "mt-1 text-sm text-gray-500",
     h1: "mt-2 text-3xl sm:text-4xl font-extrabold tracking-tight text-gray-900 leading-snug",
-    excerpt: "mt-3 text-lg text-gray-700 leading-[1.9]",
+    excerpt: "mt-3 text-lg text-gray-700 leading-[1.9] break-words",
   },
 
   typography: {
-    // H2 menor que H1, cinza escuro, editorial, com respiro
     h2: "mt-14 mb-6 pl-4 text-xl sm:text-2xl font-bold text-gray-800 border-l-4 border-amber-300 leading-snug scroll-mt-28",
-    // H3 editorial
     h3: "mt-10 mb-4 text-lg sm:text-xl font-semibold text-gray-900 leading-snug scroll-mt-24",
     h4: "mt-8 mb-3 text-base sm:text-lg font-semibold text-gray-900 leading-snug scroll-mt-24",
 
-    // Parágrafos para leitura longa
-    p: "my-5 text-[17px] leading-[1.95] text-gray-700",
+    p: "my-5 text-[17px] leading-[1.95] text-gray-700 break-words",
+    ul: "my-5 pl-6 list-disc space-y-2 text-[17px] leading-[1.95] text-gray-700 break-words",
+    ol: "my-5 pl-6 list-decimal space-y-2 text-[17px] leading-[1.95] text-gray-700 break-words",
+    li: "text-[17px] leading-[1.95] text-gray-700 break-words",
 
-    ul: "my-5 pl-6 list-disc space-y-2 text-[17px] leading-[1.95] text-gray-700",
-    ol: "my-5 pl-6 list-decimal space-y-2 text-[17px] leading-[1.95] text-gray-700",
-    li: "text-[17px] leading-[1.95] text-gray-700",
-
-    a: "font-semibold text-amber-800 underline decoration-amber-300 hover:decoration-amber-600",
+    a: "font-semibold text-amber-800 underline decoration-amber-300 hover:decoration-amber-600 break-words underline-offset-2",
     strong: "text-gray-900 font-semibold",
 
     blockquote:
-      "my-7 rounded-xl border border-gray-200 bg-gray-50 px-5 py-4 text-gray-700 [&>p]:my-3",
+      "my-7 rounded-xl border border-gray-200 bg-gray-50 px-5 py-4 text-gray-700 [&>p]:my-3 break-words",
 
     hr: "my-10 border-gray-200",
-
     img: "my-8 rounded-2xl shadow-sm border border-gray-200 max-w-full h-auto",
 
     codeInline:
-      "px-1.5 py-0.5 rounded-md bg-gray-100 border border-gray-200 text-[0.95em] text-gray-900",
+      "px-1.5 py-0.5 rounded-md bg-gray-100 border border-gray-200 text-[0.95em] text-gray-900 break-words",
 
     pre: "my-7 overflow-x-auto rounded-2xl border border-gray-200 bg-gray-950 p-5 text-gray-100 text-sm leading-relaxed",
 
@@ -464,15 +568,15 @@ const DS: DesignSystem = {
     thead: "bg-gray-50",
     th: "px-4 py-3 font-semibold text-gray-900 border-b border-gray-200 whitespace-nowrap",
     tbody: "divide-y divide-gray-200",
-    td: "px-4 py-3 text-gray-700 align-top",
+    td: "px-4 py-3 text-gray-700 align-top break-words",
   },
 
   toc: {
-    wrap: "my-8 rounded-xl border border-amber-200 bg-amber-50/60 p-5 shadow-sm",
+    wrap: "my-8 rounded-xl border border-amber-200 bg-amber-50/60 p-5 shadow-sm overflow-hidden",
     title: "text-sm font-semibold text-amber-900 tracking-wide",
     list: "mt-4 grid gap-2 sm:grid-cols-2",
     link:
-      "inline-flex w-full items-center justify-between rounded-lg border border-amber-100 bg-white/70 px-3 py-2 text-sm font-semibold text-amber-900 hover:bg-amber-100 transition",
+      "inline-flex w-full min-w-0 items-center justify-between gap-3 rounded-lg border border-amber-100 bg-white/70 px-3 py-2 text-sm font-semibold text-amber-900 hover:bg-amber-100 transition whitespace-normal break-words",
   },
 
   special: {
@@ -482,13 +586,12 @@ const DS: DesignSystem = {
   },
 
   longRead: {
-    // Não usamos "prose" para não brigar com o DS.
-    articleBody: "max-w-none",
+    articleBody: "max-w-none overflow-hidden",
   },
 };
 
 /* =========================
-   Aplicadores de classes
+   Class appliers
    ========================= */
 
 function normalizeAttrs(attrs: string): string {
@@ -511,9 +614,7 @@ function ensureAttr(attrs: string, attrName: string, attrValue: string): string 
   return `${attrs} ${attrName}="${attrValue}"`;
 }
 
-/**
- * Aplica ids sec-x nos <h2> do HTML e garante classes do DS.
- */
+/** Aplica ids sec-x nos <h2> do HTML e garante classes do DS. */
 function applySectionIdsToHtml(html: string, toc: { id: string; title: string }[]): string {
   let idx = 0;
 
@@ -530,30 +631,24 @@ function applySectionIdsToHtml(html: string, toc: { id: string; title: string }[
 }
 
 /**
- * Aplica classes por TAG em todo o HTML gerado.
- * Observação: para <code>, aplicamos estilo inline; se quiser diferenciar <pre><code>,
- * posso ajustar para não aplicar em code dentro de pre.
+ * Aplica classes por TAG no HTML gerado.
+ * Ajuste: NÃO aplicar codeInline em <code> dentro de <pre>.
  */
 function applyTagClasses(html: string): string {
   let out = html;
 
-  // H3/H4
   out = out.replace(/<h3([^>]*)>/gi, (_m, attrs) => `<h3${normalizeAttrs(addOrAppendClass(attrs, DS.typography.h3))}>`);
   out = out.replace(/<h4([^>]*)>/gi, (_m, attrs) => `<h4${normalizeAttrs(addOrAppendClass(attrs, DS.typography.h4))}>`);
 
-  // P
   out = out.replace(/<p([^>]*)>/gi, (_m, attrs) => `<p${normalizeAttrs(addOrAppendClass(attrs, DS.typography.p))}>`);
 
-  // Lists
   out = out.replace(/<ul([^>]*)>/gi, (_m, attrs) => `<ul${normalizeAttrs(addOrAppendClass(attrs, DS.typography.ul))}>`);
   out = out.replace(/<ol([^>]*)>/gi, (_m, attrs) => `<ol${normalizeAttrs(addOrAppendClass(attrs, DS.typography.ol))}>`);
   out = out.replace(/<li([^>]*)>/gi, (_m, attrs) => `<li${normalizeAttrs(addOrAppendClass(attrs, DS.typography.li))}>`);
 
-  // Links / strong
   out = out.replace(/<a([^>]*)>/gi, (_m, attrs) => `<a${normalizeAttrs(addOrAppendClass(attrs, DS.typography.a))}>`);
   out = out.replace(/<strong([^>]*)>/gi, (_m, attrs) => `<strong${normalizeAttrs(addOrAppendClass(attrs, DS.typography.strong))}>`);
 
-  // Blockquote / hr / img
   out = out.replace(
     /<blockquote([^>]*)>/gi,
     (_m, attrs) => `<blockquote${normalizeAttrs(addOrAppendClass(attrs, DS.typography.blockquote))}>`
@@ -561,11 +656,21 @@ function applyTagClasses(html: string): string {
   out = out.replace(/<hr([^>]*)\/?>/gi, (_m, attrs) => `<hr${normalizeAttrs(addOrAppendClass(attrs, DS.typography.hr))} />`);
   out = out.replace(/<img([^>]*)\/?>/gi, (_m, attrs) => `<img${normalizeAttrs(addOrAppendClass(attrs, DS.typography.img))} />`);
 
-  // code/pre
-  out = out.replace(/<code([^>]*)>/gi, (_m, attrs) => `<code${normalizeAttrs(addOrAppendClass(attrs, DS.typography.codeInline))}>`);
   out = out.replace(/<pre([^>]*)>/gi, (_m, attrs) => `<pre${normalizeAttrs(addOrAppendClass(attrs, DS.typography.pre))}>`);
 
-  // tables (wrap automático)
+  // Protege <pre><code...> para não aplicar codeInline nele
+  const token = "__CODEBLOCK__";
+  out = out.replace(/<pre([^>]*)>\s*<code([^>]*)>/gi, (_m, preAttrs, codeAttrs) => {
+    return `<pre${normalizeAttrs(preAttrs)}>${token}<code${normalizeAttrs(codeAttrs)}>`;
+  });
+
+  // codeInline apenas fora de pre
+  out = out.replace(/<code([^>]*)>/gi, (_m, attrs) => `<code${normalizeAttrs(addOrAppendClass(attrs, DS.typography.codeInline))}>`);
+
+  // desfaz token
+  out = out.replace(new RegExp(token, "g"), "");
+
+  // tables
   out = out.replace(/<table([^>]*)>/gi, (_m, attrs) => {
     const tableOpen = `<table${normalizeAttrs(addOrAppendClass(attrs, DS.typography.table))}>`;
     return `<div class="${DS.typography.tableWrap}">${tableOpen}`;
@@ -580,6 +685,38 @@ function applyTagClasses(html: string): string {
 }
 
 /* =========================
+   Link post-processing (URLs cruas -> [texto](url))
+   ========================= */
+
+function isLikelyAlreadyMarkdownLink(full: string, urlStartIndex: number) {
+  // Heurística simples: se imediatamente antes do URL tiver "](" é provável que já seja [texto](url)
+  const lookBehind = full.slice(Math.max(0, urlStartIndex - 2), urlStartIndex);
+  return lookBehind === "](";
+}
+
+/**
+ * Converte URLs "cruas" em markdown links com âncoras amigáveis (variáveis).
+ * - Preserva links já em markdown.
+ * - Evita engolir pontuação final: ), . , ; : !
+ * - Primeira URL usa "primaryText" (randomizado); demais usam genericText (randomizado).
+ */
+function linkifyBareUrls(md: string, opts: { primaryText: string; genericText: string }) {
+  const src = (md || "").trim();
+  if (!src) return "";
+
+  const urlRe = /(https?:\/\/[^\s)<]+)([).,;:!?]*)/g;
+  let seen = 0;
+
+  return src.replace(urlRe, (match, url, trailing, offset) => {
+    if (isLikelyAlreadyMarkdownLink(src, offset)) return match;
+
+    seen++;
+    const text = seen === 1 ? opts.primaryText : opts.genericText;
+    return `[${text}](${url})${trailing || ""}`;
+  });
+}
+
+/* =========================
    TOC
    ========================= */
 function renderToc(toc: { id: string; title: string }[], minH2 = 4): string {
@@ -590,7 +727,8 @@ function renderToc(toc: { id: string; title: string }[], minH2 = 4): string {
       (t) => `
 <li>
   <a class="${DS.toc.link}" href="#${t.id}">
-    <span>${escapeHtml(t.title)}</span><span aria-hidden="true">→</span>
+    <span class="min-w-0 flex-1 break-words">${escapeHtml(t.title)}</span>
+    <span aria-hidden="true" class="shrink-0">→</span>
   </a>
 </li>`.trim()
     )
@@ -615,13 +753,28 @@ function renderSpecialBlock(params: { title: string; markdown: string; variant: 
 
   const pal = DS.special[variant] ?? DS.special.default;
 
-  const innerHtmlRaw = String(marked.parse(markdown.trim()));
+  // Textos variáveis (15 opções)
+  const primaryText =
+    variant === "amber"
+      ? pickRandom(LITURGIA_LINK_TEXTS, "Ver a liturgia de hoje")
+      : variant === "sky"
+      ? pickRandom(TERCO_LINK_TEXTS, "Rezar o terço do dia")
+      : pickRandom(GENERIC_LINK_TEXTS, "Abrir link");
+
+  const genericText = pickRandom(GENERIC_LINK_TEXTS, "Abrir link");
+
+  // 1) Converte URLs cruas -> [âncora](url)
+  const mdPrettified = linkifyBareUrls(markdown.trim(), { primaryText, genericText });
+
+  // 2) Renderiza markdown -> HTML e aplica classes
+  const innerHtmlRaw = String(marked.parse(mdPrettified));
   const innerHtml = applyTagClasses(innerHtmlRaw);
 
   return `
-<section class="rounded-xl border ${pal.wrap} p-5 sm:p-6 shadow-sm" style="margin-top:20px;margin-bottom:20px;">
+<section class="my-5 rounded-xl border ${pal.wrap} p-5 sm:p-6 shadow-sm overflow-hidden">
   <h3 class="${DS.typography.h3} ${pal.title} !mt-0">${escapeHtml(title)}</h3>
-  <div class="${DS.longRead.articleBody}">
+
+  <div class="${DS.longRead.articleBody} break-words">
     ${innerHtml}
   </div>
 </section>
@@ -649,8 +802,9 @@ export async function formatArticleToHtml(articleText: string): Promise<string> 
   const publishedDate = new Date();
   const publishedISO = publishedDate.toISOString().split("T")[0];
 
-  // 1) remove bloco [SEO]
-  const { cleaned: mdNoSeo } = extractBlock(input, "SEO");
+  // 1) remove TODOS os blocos [SEO] do HTML final
+  const seoRemoved = extractAllBlocks(input, "SEO");
+  const mdNoSeo = seoRemoved.cleaned;
 
   // 2) extrai liturgia e terço
   const { mdClean, liturgia, terco } = extractSpecialBlocks(mdNoSeo);
@@ -682,15 +836,18 @@ export async function formatArticleToHtml(articleText: string): Promise<string> 
       "Hoje, caminhemos juntos pela fé: uma leitura que ilumina, consola e nos aproxima de Deus na vida concreta."
   );
 
-  // 9) Especiais
+  // 9) Especiais (com títulos variáveis também)
+  const liturgiaTitle = pickRandom(LITURGIA_CARD_TITLES, "Liturgia do dia");
+  const tercoTitle = pickRandom(TERCO_CARD_TITLES, "Terço do dia");
+
   const liturgiaHtml = renderSpecialBlock({
-    title: "Liturgia do dia",
+    title: liturgiaTitle,
     markdown: (liturgia || "").trim(),
     variant: "amber",
   });
 
   const tercoHtml = renderSpecialBlock({
-    title: "Terço do dia",
+    title: tercoTitle,
     markdown: (terco || "").trim(),
     variant: "sky",
   });
@@ -715,7 +872,7 @@ export async function formatArticleToHtml(articleText: string): Promise<string> 
 
   ${tocHtml}
 
-  <div class="my-8 flex justify-center">
+  <div class="my-8 flex justify-center overflow-hidden">
     <ins class="adsbygoogle"
       style="display:block;"
       data-ad-client="ca-pub-8819996017476509"
@@ -744,7 +901,7 @@ export async function analyzeSeoAndExtractMetadata(
   focusKeywords: string,
   _opts?: { model?: string; maxCompletionTokens?: number; temperature?: number }
 ): Promise<{ keywords: string[]; metaDescription: string }> {
-  const { value: seoBlock, cleaned: mdNoSeoBlock } = extractBlock(articleText, "SEO");
+  const { firstValue: seoBlock, cleaned: mdNoSeoBlock } = extractAllBlocks(articleText, "SEO");
 
   // 1) Se veio bloco [SEO], parseia e valida
   if (seoBlock) {
@@ -755,14 +912,15 @@ export async function analyzeSeoAndExtractMetadata(
         ? parsed.keywords.map(String).map((s) => s.trim()).filter(Boolean).slice(0, 12)
         : [];
 
-    const metaDescription = typeof parsed?.metaDescription === "string" ? clampMeta(parsed.metaDescription, 160) : "";
+    const metaDescription =
+      typeof parsed?.metaDescription === "string" ? clampMeta(parsed.metaDescription, 160) : "";
 
     if (keywords.length >= 6 && metaDescription) {
       return { keywords, metaDescription };
     }
   }
 
-  // 2) Fallback: deriva de focusKeywords + excerpt
+  // 2) Fallback: deriva de focusKeywords + excerpt (texto sem SEO)
   const { excerpt } = extractTitleAndExcerpt(mdNoSeoBlock);
 
   const baseKeywords = normalizeKeywordsFromFocus(focusKeywords);
